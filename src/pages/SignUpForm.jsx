@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import forge from "node-forge";
 
 const SignUpForm = ({ axiosInstance }) => {
@@ -60,10 +60,8 @@ const SignUpForm = ({ axiosInstance }) => {
       });
 
       console.log(response.data);
-      alert("User registered successfully!");
     } catch (error) {
       console.error("Error registering user:", error);
-      alert("Registration failed.");
     }
   };
 

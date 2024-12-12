@@ -1,12 +1,15 @@
-import { useState, useEffect } from "react";
+// LoginForm.jsx
+import React, { useState, useEffect } from "react";
 import forge from "node-forge";
 import CryptoJS from "crypto-js";
+import { useNavigate } from "react-router-dom";
 
-const LoginForm = ({ axiosInstance }) => {
+const LoginForm = ({ axiosInstance, onLoginSuccess }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [publicKey, setPublicKey] = useState(null);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchPublicKey = async () => {
@@ -54,8 +57,14 @@ const LoginForm = ({ axiosInstance }) => {
         encryptedPassword,
       });
 
-      alert(response.data.message);
-      // In a real app, you might redirect or update state after success
+      // If authentication is successful, update auth status and redirect
+      if (response.data.message === "Authentication successful!") {
+        await onLoginSuccess(); // Re-check auth status
+        navigate("/"); // Redirect to home
+      } else {
+        // Handle other success messages if any
+        alert(response.data.message);
+      }
     } catch (error) {
       console.error("Error during authentication:", error);
       alert("Authentication failed!");
