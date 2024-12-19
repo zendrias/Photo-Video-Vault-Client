@@ -1,50 +1,61 @@
-// FileList.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-const FileList = ({ axiosInstance }) => {
+const FileGallery = ({ axiosInstance }) => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // Replace with your actual backend URL if different from frontend domain
+  const backendURL = import.meta.env.VITE_BASE_URL; // e.g. "https://localhost:3443"
 
   useEffect(() => {
     const fetchFiles = async () => {
       try {
-        const response = await axiosInstance.get("/files"); // Implement this endpoint to list files
+        const response = await axiosInstance.get("/files", {
+          withCredentials: true,
+        });
         setFiles(response.data.files);
-      } catch (error) {
-        console.error("Error fetching files:", error);
-        alert("Failed to fetch files.");
+      } catch (err) {
+        console.error("Error fetching files:", err);
+        setError("Failed to fetch files. Please try again.");
       } finally {
         setLoading(false);
       }
     };
-
     fetchFiles();
   }, [axiosInstance]);
 
-  if (loading) {
-    return <div>Loading files...</div>;
-  }
-
-  if (files.length === 0) {
-    return <div>No files uploaded yet.</div>;
-  }
+  if (loading) return <div>Loading your gallery...</div>;
+  if (error) return <div>{error}</div>;
+  if (files.length === 0)
+    return <div>Your gallery is empty. Upload some files!</div>;
 
   return (
     <div>
-      <h2>Your Files</h2>
-      <ul>
-        {files.map((file) => (
-          <li key={file.id}>
-            {file.filename} - {file.mimetype} - {file.size} bytes
-            <a href={`/api/files/${file.id}`} download={file.filename}>
-              Download
-            </a>
-          </li>
+      <h2>Your Photo and Video Gallery</h2>
+      <div className="gallery">
+        {files.map((file, index) => (
+          <div key={file.id} className="gallery-item">
+            {file.mimetype.startsWith("image/") ? (
+              <img src={file.content} alt={file.filename} />
+            ) : file.mimetype.startsWith("video/") ? (
+              <video controls crossOrigin="use-credentials">
+                <source
+                  src={`${backendURL}/files/${file.id}/stream`}
+                  type={file.mimetype}
+                />
+                Your browser does not support the video tag.
+              </video>
+            ) : (
+              <p>Unsupported file type: {file.mimetype}</p>
+            )}
+            <p>{file.filename}</p>
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   );
 };
 
-export default FileList;
+export default FileGallery;

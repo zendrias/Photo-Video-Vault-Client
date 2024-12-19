@@ -1,15 +1,11 @@
-// src/pages/FileUpload.jsx
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import forge from "node-forge";
 import CryptoJS from "crypto-js";
-import { useNavigate } from "react-router-dom";
+import forge from "node-forge";
 
 const FileUpload = ({ axiosInstance }) => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [publicKey, setPublicKey] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchPublicKey = async () => {
@@ -28,6 +24,59 @@ const FileUpload = ({ axiosInstance }) => {
     setSelectedFiles(e.target.files);
   };
 
+  const wordArrayToUint8Array = (wordArray) => {
+    const words = wordArray.words;
+    const sigBytes = wordArray.sigBytes;
+    const u8 = new Uint8Array(sigBytes);
+    let i = 0,
+      offset = 0;
+    while (offset < sigBytes) {
+      let word = words[i++];
+      u8[offset++] = (word >> 24) & 0xff;
+      u8[offset++] = (word >> 16) & 0xff;
+      u8[offset++] = (word >> 8) & 0xff;
+      u8[offset++] = word & 0xff;
+    }
+    return u8;
+  };
+
+  const encryptFile = (file, aesKeyHex) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const arrayBuffer = e.target.result;
+          const u8 = new Uint8Array(arrayBuffer);
+          const wordArray = CryptoJS.lib.WordArray.create(u8);
+
+          const aesKeyWA = CryptoJS.enc.Hex.parse(aesKeyHex);
+          const ivWA = CryptoJS.lib.WordArray.random(16);
+
+          const encrypted = CryptoJS.AES.encrypt(wordArray, aesKeyWA, {
+            iv: ivWA,
+            mode: CryptoJS.mode.CBC,
+            padding: CryptoJS.pad.Pkcs7,
+          });
+
+          const ivBytes = wordArrayToUint8Array(ivWA);
+          const ctBytes = wordArrayToUint8Array(encrypted.ciphertext);
+
+          const combined = new Uint8Array(ivBytes.length + ctBytes.length);
+          combined.set(ivBytes, 0);
+          combined.set(ctBytes, ivBytes.length);
+
+          // The blob is now encrypted, but its size differs from original.
+          // We need the original size for the server. We'll send it separately.
+          resolve(new Blob([combined], { type: "application/octet-stream" }));
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
   const handleUpload = async () => {
     if (!publicKey) {
       alert("Encryption key not available.");
@@ -42,67 +91,40 @@ const FileUpload = ({ axiosInstance }) => {
     setUploading(true);
 
     try {
-      // Generate a random AES key
-      const aesKey = CryptoJS.lib.WordArray.random(32).toString(
+      // Generate a random 32-byte key in hex
+      const aesKeyHex = CryptoJS.lib.WordArray.random(32).toString(
         CryptoJS.enc.Hex
-      ); // 256-bit key
-
-      // Encrypt the AES key with the server's public RSA key
-      const rsa = forge.pki.publicKeyFromPem(publicKey);
-      const encryptedAesKey = forge.util.encode64(
-        rsa.encrypt(aesKey, "RSA-OAEP")
       );
 
-      // Prepare FormData
+      // RSA encrypt the AES key
+      const rsa = forge.pki.publicKeyFromPem(publicKey);
+      const encryptedAesKey = forge.util.encode64(
+        rsa.encrypt(aesKeyHex, "RSA-OAEP")
+      );
+
       const formData = new FormData();
       formData.append("encryptedAesKey", encryptedAesKey);
 
-      // Encrypt each file and append to FormData
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
-        const encryptedFile = await encryptFile(file, aesKey);
-        formData.append("files", encryptedFile, file.name + ".enc");
+        // Send original plaintext file size
+        formData.append(`originalFileSize_${i}`, file.size);
+        const encryptedFileBlob = await encryptFile(file, aesKeyHex);
+        formData.append("files", encryptedFileBlob, file.name);
       }
 
-      // Send the encrypted files and encrypted AES key to the backend
-      const response = await axiosInstance.post("/upload", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+      await axiosInstance.post("/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
       alert("Files uploaded successfully!");
-      navigate("/"); // Redirect to home or desired page
+      window.location.reload();
     } catch (error) {
       console.error("Error uploading files:", error);
       alert("File upload failed.");
     } finally {
       setUploading(false);
     }
-  };
-
-  // Function to encrypt a file using AES
-  const encryptFile = (file, aesKey) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        try {
-          const binaryStr = e.target.result;
-          const wordArray = CryptoJS.lib.WordArray.create(binaryStr);
-          const encrypted = CryptoJS.AES.encrypt(wordArray, aesKey).toString();
-          const encryptedBlob = new Blob([encrypted], {
-            type: "application/octet-stream",
-          });
-          resolve(encryptedBlob);
-        } catch (err) {
-          reject(err);
-        }
-      };
-      reader.onerror = function (err) {
-        reject(err);
-      };
-      reader.readAsArrayBuffer(file);
-    });
   };
 
   return (
