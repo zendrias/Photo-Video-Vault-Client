@@ -92,7 +92,7 @@ const App = () => {
           path="/"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <h1>You are authenticated as {user?.username}</h1>
+              {/* <h1>You are authenticated as {user?.username}</h1> */}
               <FileUpload axiosInstance={axiosInstance} />{" "}
               {/* Include FileUpload */}
             </ProtectedRoute>

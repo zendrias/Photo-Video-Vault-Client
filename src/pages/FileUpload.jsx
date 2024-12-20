@@ -1,11 +1,16 @@
+// src/components/FileUpload.jsx
 import React, { useState, useEffect } from "react";
-import CryptoJS from "crypto-js";
+import "./FileUpload.css";
 import forge from "node-forge";
 
 const FileUpload = ({ axiosInstance }) => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [publicKey, setPublicKey] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState(null);
+  const [jobId, setJobId] = useState(null);
+  const [jobStatus, setJobStatus] = useState(null);
 
   useEffect(() => {
     const fetchPublicKey = async () => {
@@ -14,89 +19,64 @@ const FileUpload = ({ axiosInstance }) => {
         setPublicKey(response.data.publicKey);
       } catch (error) {
         console.error("Error fetching public key:", error);
-        alert("Failed to fetch encryption key.");
+        setError("Failed to fetch encryption key.");
       }
     };
     fetchPublicKey();
   }, [axiosInstance]);
 
+  useEffect(() => {
+    let interval = null;
+    if (jobId) {
+      interval = setInterval(async () => {
+        try {
+          const response = await axiosInstance.get(`/job-status/${jobId}`);
+          setJobStatus(response.data.state);
+          if (
+            response.data.state === "completed" ||
+            response.data.state === "failed"
+          ) {
+            clearInterval(interval);
+            if (response.data.state === "completed") {
+              alert("Files uploaded and processed successfully!");
+            } else {
+              setError("File processing failed. Please try again.");
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching job status:", error);
+          setError("Failed to fetch job status.");
+          clearInterval(interval);
+        }
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [jobId, axiosInstance]);
+
   const handleFileChange = (e) => {
     setSelectedFiles(e.target.files);
-  };
-
-  const wordArrayToUint8Array = (wordArray) => {
-    const words = wordArray.words;
-    const sigBytes = wordArray.sigBytes;
-    const u8 = new Uint8Array(sigBytes);
-    let i = 0,
-      offset = 0;
-    while (offset < sigBytes) {
-      let word = words[i++];
-      u8[offset++] = (word >> 24) & 0xff;
-      u8[offset++] = (word >> 16) & 0xff;
-      u8[offset++] = (word >> 8) & 0xff;
-      u8[offset++] = word & 0xff;
-    }
-    return u8;
-  };
-
-  const encryptFile = (file, aesKeyHex) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        try {
-          const arrayBuffer = e.target.result;
-          const u8 = new Uint8Array(arrayBuffer);
-          const wordArray = CryptoJS.lib.WordArray.create(u8);
-
-          const aesKeyWA = CryptoJS.enc.Hex.parse(aesKeyHex);
-          const ivWA = CryptoJS.lib.WordArray.random(16);
-
-          const encrypted = CryptoJS.AES.encrypt(wordArray, aesKeyWA, {
-            iv: ivWA,
-            mode: CryptoJS.mode.CBC,
-            padding: CryptoJS.pad.Pkcs7,
-          });
-
-          const ivBytes = wordArrayToUint8Array(ivWA);
-          const ctBytes = wordArrayToUint8Array(encrypted.ciphertext);
-
-          const combined = new Uint8Array(ivBytes.length + ctBytes.length);
-          combined.set(ivBytes, 0);
-          combined.set(ctBytes, ivBytes.length);
-
-          // The blob is now encrypted, but its size differs from original.
-          // We need the original size for the server. We'll send it separately.
-          resolve(new Blob([combined], { type: "application/octet-stream" }));
-        } catch (err) {
-          reject(err);
-        }
-      };
-      reader.onerror = reject;
-      reader.readAsArrayBuffer(file);
-    });
+    setError(null);
   };
 
   const handleUpload = async () => {
     if (!publicKey) {
-      alert("Encryption key not available.");
+      setError("Encryption key not available.");
       return;
     }
 
     if (selectedFiles.length === 0) {
-      alert("Please select at least one file to upload.");
+      setError("Please select at least one file to upload.");
       return;
     }
 
     setUploading(true);
+    setProgress(0);
+    setError(null);
 
     try {
-      // Generate a random 32-byte key in hex
-      const aesKeyHex = CryptoJS.lib.WordArray.random(32).toString(
-        CryptoJS.enc.Hex
-      );
+      const randomKey = forge.random.getBytesSync(32);
+      const aesKeyHex = forge.util.bytesToHex(randomKey);
 
-      // RSA encrypt the AES key
       const rsa = forge.pki.publicKeyFromPem(publicKey);
       const encryptedAesKey = forge.util.encode64(
         rsa.encrypt(aesKeyHex, "RSA-OAEP")
@@ -107,38 +87,79 @@ const FileUpload = ({ axiosInstance }) => {
 
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
-        // Send original plaintext file size
         formData.append(`originalFileSize_${i}`, file.size);
-        const encryptedFileBlob = await encryptFile(file, aesKeyHex);
-        formData.append("files", encryptedFileBlob, file.name);
+        formData.append("files", file, file.name);
       }
 
-      await axiosInstance.post("/upload", formData, {
+      const response = await axiosInstance.post("/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+          setProgress(percentCompleted);
+        },
       });
 
-      alert("Files uploaded successfully!");
-      window.location.reload();
+      setJobId(response.data.jobId);
+      alert(
+        "Files are being processed in the background. You can continue browsing."
+      );
+      setSelectedFiles([]);
+      document.getElementById("file-input").value = "";
     } catch (error) {
       console.error("Error uploading files:", error);
-      alert("File upload failed.");
+      setError("File upload failed. Please try again.");
     } finally {
       setUploading(false);
+      setProgress(0);
     }
   };
 
   return (
-    <div>
-      <h2>Upload Files</h2>
-      <input
-        type="file"
-        multiple
-        onChange={handleFileChange}
-        accept="image/*,video/*"
-      />
-      <button onClick={handleUpload} disabled={uploading}>
-        {uploading ? "Uploading..." : "Upload"}
-      </button>
+    <div className="upload-container">
+      <div className="upload-form">
+        <label htmlFor="file-input" className="file-label">
+          Select Files
+        </label>
+        <input
+          id="file-input"
+          type="file"
+          multiple
+          onChange={handleFileChange}
+          accept="image/*,video/*"
+          className="file-input"
+        />
+        {selectedFiles.length > 0 && (
+          <div className="selected-files">
+            <h3>Selected Files:</h3>
+            <ul>
+              {Array.from(selectedFiles).map((file, index) => (
+                <li key={index}>
+                  {file.name} - {(file.size / (1024 * 1024)).toFixed(2)} MB
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {error && <div className="error-message">{error}</div>}
+        {jobId && (
+          <div className="conversion-message">Processing your files...</div>
+        )}
+        <button
+          onClick={handleUpload}
+          disabled={uploading}
+          className={`upload-button ${uploading ? "disabled" : ""}`}
+        >
+          {uploading ? "Uploading..." : "Upload"}
+        </button>
+        {uploading && (
+          <div className="progress-bar">
+            <div className="progress" style={{ width: `${progress}%` }}></div>
+            <span>{progress}%</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
