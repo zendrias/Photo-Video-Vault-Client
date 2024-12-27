@@ -1,7 +1,6 @@
-// src/components/FileUpload.jsx
 import React, { useState, useEffect } from "react";
-import "./FileUpload.css";
 import forge from "node-forge";
+import "./FileUpload.css";
 
 const FileUpload = ({ axiosInstance }) => {
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -9,119 +8,95 @@ const FileUpload = ({ axiosInstance }) => {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState(null);
-  const [jobId, setJobId] = useState(null);
-  const [jobStatus, setJobStatus] = useState(null);
+  const [jobIds, setJobIds] = useState([]);
+  const [uploadComplete, setUploadComplete] = useState(false);
 
   useEffect(() => {
+    // Fetch the server's RSA public key to encrypt our AES key
     const fetchPublicKey = async () => {
       try {
         const response = await axiosInstance.get("/get-public-key");
         setPublicKey(response.data.publicKey);
-      } catch (error) {
-        console.error("Error fetching public key:", error);
-        setError("Failed to fetch encryption key.");
+      } catch (err) {
+        console.error("Error fetching public key:", err);
+        setError("Failed to fetch public key.");
       }
     };
     fetchPublicKey();
   }, [axiosInstance]);
 
-  useEffect(() => {
-    let interval = null;
-    if (jobId) {
-      interval = setInterval(async () => {
-        try {
-          const response = await axiosInstance.get(`/job-status/${jobId}`);
-          setJobStatus(response.data.state);
-          if (
-            response.data.state === "completed" ||
-            response.data.state === "failed"
-          ) {
-            clearInterval(interval);
-            if (response.data.state === "completed") {
-              alert("Files uploaded and processed successfully!");
-            } else {
-              setError("File processing failed. Please try again.");
-            }
-          }
-        } catch (error) {
-          console.error("Error fetching job status:", error);
-          setError("Failed to fetch job status.");
-          clearInterval(interval);
-        }
-      }, 3000);
-    }
-    return () => clearInterval(interval);
-  }, [jobId, axiosInstance]);
-
   const handleFileChange = (e) => {
     setSelectedFiles(e.target.files);
     setError(null);
+    setUploadComplete(false);
   };
 
   const handleUpload = async () => {
     if (!publicKey) {
-      setError("Encryption key not available.");
+      setError("No public key available for encryption.");
       return;
     }
-
     if (selectedFiles.length === 0) {
       setError("Please select at least one file to upload.");
       return;
     }
-
+    setError(null);
     setUploading(true);
     setProgress(0);
-    setError(null);
+    setUploadComplete(false);
 
     try {
+      // 1) Generate a random 32-byte AES key
       const randomKey = forge.random.getBytesSync(32);
       const aesKeyHex = forge.util.bytesToHex(randomKey);
 
+      // 2) Encrypt that key with RSA (server's public key)
       const rsa = forge.pki.publicKeyFromPem(publicKey);
-      const encryptedAesKey = forge.util.encode64(
+      const encryptedAesKeyBase64 = forge.util.encode64(
         rsa.encrypt(aesKeyHex, "RSA-OAEP")
       );
 
+      // 3) Build FormData
       const formData = new FormData();
-      formData.append("encryptedAesKey", encryptedAesKey);
+      formData.append("encryptedAesKey", encryptedAesKeyBase64);
 
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
-        formData.append(`originalFileSize_${i}`, file.size);
         formData.append("files", file, file.name);
       }
 
+      // 4) POST to /upload
       const response = await axiosInstance.post("/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          setProgress(percentCompleted);
+          if (progressEvent.total) {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            setProgress(percentCompleted);
+          }
         },
       });
 
-      setJobId(response.data.jobId);
-      alert(
-        "Files are being processed in the background. You can continue browsing."
-      );
+      // The server should respond with an array of jobIds
+      if (response.data.jobIds) {
+        setJobIds(response.data.jobIds);
+      }
+      setUploadComplete(true);
       setSelectedFiles([]);
       document.getElementById("file-input").value = "";
-    } catch (error) {
-      console.error("Error uploading files:", error);
+    } catch (err) {
+      console.error("Error uploading files:", err);
       setError("File upload failed. Please try again.");
     } finally {
       setUploading(false);
-      setProgress(0);
     }
   };
 
   return (
     <div className="upload-container">
+      <h2>Upload Files</h2>
       <div className="upload-form">
-        <label htmlFor="file-input" className="file-label">
-          Select Files
-        </label>
         <input
           id="file-input"
           type="file"
@@ -132,7 +107,6 @@ const FileUpload = ({ axiosInstance }) => {
         />
         {selectedFiles.length > 0 && (
           <div className="selected-files">
-            <h3>Selected Files:</h3>
             <ul>
               {Array.from(selectedFiles).map((file, index) => (
                 <li key={index}>
@@ -143,22 +117,22 @@ const FileUpload = ({ axiosInstance }) => {
           </div>
         )}
         {error && <div className="error-message">{error}</div>}
-        {jobId && (
-          <div className="conversion-message">Processing your files...</div>
-        )}
-        <button
-          onClick={handleUpload}
-          disabled={uploading}
-          className={`upload-button ${uploading ? "disabled" : ""}`}
-        >
-          {uploading ? "Uploading..." : "Upload"}
-        </button>
         {uploading && (
           <div className="progress-bar">
             <div className="progress" style={{ width: `${progress}%` }}></div>
             <span>{progress}%</span>
           </div>
         )}
+        {uploadComplete && (
+          <div className="success-message">Upload initiated successfully!</div>
+        )}
+        <button
+          onClick={handleUpload}
+          disabled={uploading || selectedFiles.length === 0}
+          className="upload-button"
+        >
+          {uploading ? "Uploading..." : "Upload"}
+        </button>
       </div>
     </div>
   );
