@@ -1,234 +1,138 @@
-// File: EncryptedVideoPlayer.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 
 /**
  * Usage:
- *   <EncryptedVideoPlayer file={selectedFile} axiosInstance={apiClient} />
+ *   <EncryptedVideoPlayer file={someFileObject} axiosInstance={apiClient} />
  *
- * This attempts to:
- *   1) Load the JSON manifest => { dashMPD, initSegmentVideo, initSegmentAudio, segmentsVideo, segmentsAudio }
- *   2) Optionally fetch the MPD XML just for debugging
- *   3) Create a MediaSource with two SourceBuffers: one for video, one for audio
- *   4) Append init segments + each media segment
- *   5) Mark the stream ended
+ * Changes:
+ *   1) We only append the init segments + first media segments initially.
+ *   2) Then we load the rest in a "background" loop so the user sees typical streaming behavior.
+ *   3) We optionally skip calling endOfStream() until we truly have appended all segments.
  */
-const EncryptedVideoPlayer = ({ file, axiosInstance }) => {
+export default function EncryptedVideoPlayer({ file, axiosInstance }) {
   const videoRef = useRef(null);
+  const mediaSourceRef = useRef(null);
 
-  const [mediaSource, setMediaSource] = useState(null);
-  const [videoSourceBuffer, setVideoSourceBuffer] = useState(null);
-  const [audioSourceBuffer, setAudioSourceBuffer] = useState(null);
+  // For ensuring we only create buffers once
+  const [buffersCreated, setBuffersCreated] = useState(false);
 
   const [manifest, setManifest] = useState(null);
-  const [mpdXML, setMpdXML] = useState(null); // optional, for debugging
-  const [loading, setLoading] = useState(false); // basic "loading" state
+  const [mpdXML, setMpdXML] = useState(null); // optional debug
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // 1) Fetch JSON manifest
+  // 1) Load manifest
   useEffect(() => {
     if (!file) return;
+    let cancel = false;
 
-    const loadManifest = async () => {
+    const load = async () => {
       setLoading(true);
       setError(null);
       try {
         const resp = await axiosInstance.get(`/videos/${file.id}/manifest`);
-        setManifest(resp.data);
+        if (!cancel) setManifest(resp.data);
       } catch (err) {
-        console.error("Failed to load manifest:", err);
-        setError("Failed to load manifest");
+        console.error("Manifest load error:", err);
+        if (!cancel) setError("Failed to load manifest");
       } finally {
-        setLoading(false);
+        if (!cancel) setLoading(false);
       }
     };
+    load();
 
-    loadManifest();
+    return () => {
+      cancel = true;
+    };
   }, [file, axiosInstance]);
 
-  // 2) (Optional) fetch raw MPD XML for debugging
+  // 2) (Optional) load raw MPD XML
   useEffect(() => {
     if (!manifest || !file) return;
+    let cancel = false;
 
-    const fetchMPD = async () => {
+    const loadMPD = async () => {
       try {
         const resp = await axiosInstance.get(`/videos/${file.id}/mpd`, {
           responseType: "text",
         });
-        setMpdXML(resp.data);
+        if (!cancel) setMpdXML(resp.data);
       } catch (err) {
-        console.error("Failed to load MPD XML:", err);
-        // We won't treat this as a critical error; it's just for debugging.
+        console.warn("MPD load error (non-critical):", err);
       }
     };
+    loadMPD();
 
-    fetchMPD();
+    return () => {
+      cancel = true;
+    };
   }, [manifest, file, axiosInstance]);
 
-  // 3) Setup MediaSource => create 2 SourceBuffers for video + audio
+  // 3) Create a single MediaSource if not already
   useEffect(() => {
     if (!manifest) return;
     if (!videoRef.current) return;
 
-    const ms = new MediaSource();
-    setMediaSource(ms);
-
-    // Listen for when the MediaSource is ready to accept SourceBuffers
-    const onSourceOpen = () => {
-      try {
-        // For H.264 / AAC:
-        // Example: 'video/mp4; codecs="avc1.640028"' and 'audio/mp4; codecs="mp4a.40.5"'
-        const mimeVideo = 'video/mp4; codecs="avc1.640028"';
-        const mimeAudio = 'audio/mp4; codecs="mp4a.40.5"';
-
-        const vsb = ms.addSourceBuffer(mimeVideo);
-        const asb = ms.addSourceBuffer(mimeAudio);
-
-        setVideoSourceBuffer(vsb);
-        setAudioSourceBuffer(asb);
-      } catch (err) {
-        console.error("Error creating SourceBuffers:", err);
-      }
-    };
-
-    ms.addEventListener("sourceopen", onSourceOpen);
-
-    // Assign object URL to the <video> element
-    videoRef.current.src = URL.createObjectURL(ms);
-
-    return () => {
-      ms.removeEventListener("sourceopen", onSourceOpen);
-    };
+    if (!mediaSourceRef.current) {
+      const ms = new MediaSource();
+      mediaSourceRef.current = ms;
+      videoRef.current.src = URL.createObjectURL(ms);
+      console.log("[EncryptedVideoPlayer] Created new MediaSource");
+    }
   }, [manifest]);
 
-  // 4) Once we have 2 SourceBuffers => load init + media segments
+  // 4) On "sourceopen", create buffers + do partial appending
   useEffect(() => {
-    if (!manifest || !mediaSource) return;
-    if (!videoSourceBuffer || !audioSourceBuffer) return;
+    const ms = mediaSourceRef.current;
+    if (!ms || !manifest) return;
 
-    let canceled = false;
+    if (buffersCreated) return; // skip if buffers are already created
 
-    // Helper to fetch a segment from your server
-    const fetchSegment = async (filename) => {
-      if (canceled) return null;
-      try {
-        const resp = await axiosInstance.get(
-          `/videos/${file.id}/segment/${filename}`,
-          { responseType: "arraybuffer" }
-        );
-        if (canceled) return null;
-        return new Uint8Array(resp.data);
-      } catch (err) {
-        console.error("Segment fetch error =>", filename, err);
-        return null;
+    function handleSourceOpen() {
+      if (ms.readyState !== "open") {
+        console.warn("MediaSource not open even though sourceopen fired");
+        return;
       }
-    };
+      console.log(
+        "[EncryptedVideoPlayer] MS is open; creating SourceBuffers..."
+      );
 
-    const loadAllSegments = async () => {
-      if (mediaSource.readyState !== "open") {
-        console.warn("MediaSource not open at start; aborting load.");
+      setBuffersCreated(true);
+
+      const videoMime = 'video/mp4; codecs="avc1.640028"';
+      const audioMime = 'audio/mp4; codecs="mp4a.40.5"';
+      let videoBuffer, audioBuffer;
+      try {
+        videoBuffer = ms.addSourceBuffer(videoMime);
+        audioBuffer = ms.addSourceBuffer(audioMime);
+      } catch (err) {
+        console.error("SourceBuffer creation error:", err);
         return;
       }
 
-      // ---- VIDEO track
-      if (!manifest.initSegmentVideo) {
-        console.error("Missing initSegmentVideo in manifest!");
-      } else {
-        // 4a) Video init
-        const initVidData = await fetchSegment(
-          manifest.initSegmentVideo.filename
-        );
-        if (initVidData) {
-          try {
-            await appendBufferAsync(videoSourceBuffer, initVidData);
-          } catch (err) {
-            console.error("Video init append error:", err);
-            return;
-          }
-        }
-        // 4b) Video media segments
-        for (const seg of manifest.segmentsVideo || []) {
-          if (canceled || mediaSource.readyState !== "open") break;
-          const segData = await fetchSegment(seg.filename);
-          if (!segData) break;
-          try {
-            await appendBufferAsync(videoSourceBuffer, segData);
-          } catch (err) {
-            console.error("Video seg append error =>", seg.filename, err);
-            break;
-          }
-        }
-      }
+      // 4a) Append init segments + first 1–2 media segments => allow immediate playback
+      appendInitialSegments(
+        ms,
+        manifest,
+        videoBuffer,
+        audioBuffer,
+        file.id,
+        axiosInstance
+      ).catch((err) => console.error("appendInitialSegments error:", err));
+    }
 
-      // ---- AUDIO track
-      if (!manifest.initSegmentAudio) {
-        console.error("Missing initSegmentAudio in manifest!");
-      } else {
-        // 4c) Audio init
-        const initAudData = await fetchSegment(
-          manifest.initSegmentAudio.filename
-        );
-        if (initAudData) {
-          try {
-            await appendBufferAsync(audioSourceBuffer, initAudData);
-          } catch (err) {
-            console.error("Audio init append error:", err);
-            return;
-          }
-        }
-        // 4d) Audio media segments
-        for (const seg of manifest.segmentsAudio || []) {
-          if (canceled || mediaSource.readyState !== "open") break;
-          const segData = await fetchSegment(seg.filename);
-          if (!segData) break;
-          try {
-            await appendBufferAsync(audioSourceBuffer, segData);
-          } catch (err) {
-            console.error("Audio seg append error =>", seg.filename, err);
-            break;
-          }
-        }
-      }
-
-      // 4e) Once we've appended everything, let the browser know the stream is done
-      // This also helps the browser figure out the total duration for seeking, etc.
-      if (!canceled) {
-        try {
-          if (mediaSource.readyState === "open") {
-            mediaSource.endOfStream();
-            // Optionally set mediaSource.duration to a known length (if you have it),
-            // e.g. `mediaSource.duration = totalDurationInSeconds;`
-          }
-        } catch (err) {
-          console.warn("Error calling endOfStream:", err);
-        }
-      }
-    };
-
-    loadAllSegments();
-
-    return () => {
-      canceled = true;
-    };
-  }, [
-    manifest,
-    mediaSource,
-    videoSourceBuffer,
-    audioSourceBuffer,
-    file,
-    axiosInstance,
-  ]);
+    ms.addEventListener("sourceopen", handleSourceOpen);
+    return () => ms.removeEventListener("sourceopen", handleSourceOpen);
+  }, [manifest, file, axiosInstance, buffersCreated]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
-      {loading && (
-        <div style={{ color: "gray", marginBottom: 10 }}>Loading manifest…</div>
-      )}
+      {loading && <div style={{ color: "gray" }}>Loading manifest…</div>}
       {error && <div style={{ color: "red" }}>{error}</div>}
       <video
         ref={videoRef}
         controls
         autoPlay
-        muted
         style={{
           width: "100%",
           maxHeight: "70vh",
@@ -238,32 +142,153 @@ const EncryptedVideoPlayer = ({ file, axiosInstance }) => {
       />
       {mpdXML && (
         <div style={{ marginTop: 16, background: "#f5f5f5", padding: 10 }}>
-          <h4>Debug MPD XML:</h4>
+          <h4>MPD XML Debug:</h4>
           <pre style={{ whiteSpace: "pre-wrap" }}>{mpdXML}</pre>
         </div>
       )}
     </div>
   );
-};
-
-export default EncryptedVideoPlayer;
+}
 
 /**
- * Helper to append data to a SourceBuffer. Returns a Promise so we can
- * sequentially load segments without race conditions.
+ * Append just enough data to start playback, then load the rest in background.
+ */
+async function appendInitialSegments(
+  mediaSource,
+  manifest,
+  videoBuffer,
+  audioBuffer,
+  fileId,
+  axiosInstance
+) {
+  // 1) Append init segments
+  if (manifest.initSegmentVideo) {
+    const initVidData = await fetchSegment(
+      axiosInstance,
+      fileId,
+      manifest.initSegmentVideo.filename
+    );
+    await appendBufferAsync(videoBuffer, initVidData);
+  }
+  if (manifest.initSegmentAudio) {
+    const initAudData = await fetchSegment(
+      axiosInstance,
+      fileId,
+      manifest.initSegmentAudio.filename
+    );
+    await appendBufferAsync(audioBuffer, initAudData);
+  }
+
+  // 2) Append first segment(s) => e.g. first 1 or 2 from each track
+  const firstVideoSegments = (manifest.segmentsVideo || []).slice(0, 2);
+  for (const seg of firstVideoSegments) {
+    if (mediaSource.readyState !== "open") break;
+    const segData = await fetchSegment(axiosInstance, fileId, seg.filename);
+    await appendBufferAsync(videoBuffer, segData);
+  }
+
+  const firstAudioSegments = (manifest.segmentsAudio || []).slice(0, 2);
+  for (const seg of firstAudioSegments) {
+    if (mediaSource.readyState !== "open") break;
+    const segData = await fetchSegment(axiosInstance, fileId, seg.filename);
+    await appendBufferAsync(audioBuffer, segData);
+  }
+
+  console.log(
+    "[EncryptedVideoPlayer] Appended first few segments. Let the video play..."
+  );
+
+  // 3) Optionally set known duration
+  if (
+    typeof manifest.durationSec === "number" &&
+    !Number.isNaN(manifest.durationSec)
+  ) {
+    try {
+      mediaSource.duration = manifest.durationSec;
+    } catch (err) {
+      console.warn("Error setting duration:", err);
+    }
+  }
+
+  // 4) Now do the rest in the background
+  //    We'll do a short delay so playback can start. Then append all remaining.
+  setTimeout(() => {
+    console.log(
+      "[EncryptedVideoPlayer] Background loading remaining segments..."
+    );
+    appendRemainingSegments(
+      mediaSource,
+      manifest,
+      videoBuffer,
+      audioBuffer,
+      fileId,
+      axiosInstance
+    );
+  }, 500); // half-second delay for demonstration
+}
+
+/**
+ * Appends all the remaining segments in the background.
+ * We'll do it sequentially to avoid overlapping SourceBuffer updates.
+ * Once done, optionally call endOfStream().
+ */
+async function appendRemainingSegments(
+  mediaSource,
+  manifest,
+  videoBuffer,
+  audioBuffer,
+  fileId,
+  axiosInstance
+) {
+  try {
+    // Start from the third segment onward
+    const remainingVideo = (manifest.segmentsVideo || []).slice(2);
+    for (const seg of remainingVideo) {
+      if (mediaSource.readyState !== "open") break;
+      const segData = await fetchSegment(axiosInstance, fileId, seg.filename);
+      await appendBufferAsync(videoBuffer, segData);
+    }
+
+    const remainingAudio = (manifest.segmentsAudio || []).slice(2);
+    for (const seg of remainingAudio) {
+      if (mediaSource.readyState !== "open") break;
+      const segData = await fetchSegment(axiosInstance, fileId, seg.filename);
+      await appendBufferAsync(audioBuffer, segData);
+    }
+
+    // endOfStream once fully appended
+    if (mediaSource.readyState === "open") {
+      mediaSource.endOfStream();
+      console.log(
+        "[EncryptedVideoPlayer] endOfStream called after full append."
+      );
+    }
+  } catch (err) {
+    console.error("Error in background segment appending:", err);
+  }
+}
+
+/** Utility to fetch a single .m4s from your server => returns Uint8Array. */
+async function fetchSegment(axiosInstance, fileId, segFilename) {
+  const resp = await axiosInstance.get(
+    `/videos/${fileId}/segment/${segFilename}`,
+    {
+      responseType: "arraybuffer",
+    }
+  );
+  return new Uint8Array(resp.data);
+}
+
+/**
+ * Utility => waits for 'updateend' on the SourceBuffer before resolving.
  */
 function appendBufferAsync(sourceBuffer, data) {
   return new Promise((resolve, reject) => {
-    if (!sourceBuffer) {
-      return reject(new Error("No sourceBuffer available"));
-    }
-
     const onUpdateEnd = () => {
       sourceBuffer.removeEventListener("updateend", onUpdateEnd);
       sourceBuffer.removeEventListener("error", onError);
       resolve();
     };
-
     const onError = (e) => {
       sourceBuffer.removeEventListener("updateend", onUpdateEnd);
       sourceBuffer.removeEventListener("error", onError);
