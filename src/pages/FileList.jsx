@@ -47,7 +47,7 @@ const FileList = ({ axiosInstance }) => {
 
   return (
     <div className="file-list">
-      <h2>Your Encrypted Files</h2>
+      {/* <h2>Your Encrypted Files</h2> */}
       <div className="gallery">
         {files.map((file) => (
           <div
