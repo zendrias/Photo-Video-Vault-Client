@@ -1,28 +1,48 @@
-/* FileGallery.css */
+/* 
+  ========== ROOT VARIABLES (EASY TO THEME) ==========
+*/
+:root {
+  --accent-color: #4f46e5; /* Purplish-blue accent */
+  --accent-hover: #4338ca; /* Slightly darker accent */
+  --bg-color: #f5f6fa;
+  --text-color: #333;
+  --light-border: rgba(0, 0, 0, 0.1);
+  --transition-speed: 0.3s;
+  --box-shadow-1: rgba(0, 0, 0, 0.4) 0px 2px 4px,
+    rgba(0, 0, 0, 0.3) 0px 7px 13px -3px, rgba(0, 0, 0, 0.2) 0px -3px 0px inset;
+  --box-shadow-2: 0 12px 20px rgba(0, 0, 0, 0.2);
+  --danger-color: #e53e3e;
+  --gray-555: #555;
+}
 
-/* Gallery Container */
+/*
+  ========== OVERALL GALLERY CONTAINER ==========
+*/
 .gallery-container {
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--text-color);
 }
 
-/* Gallery Header */
 .gallery-container h2 {
   text-align: center;
   margin-bottom: 30px;
   font-size: 2rem;
-  color: #333;
+  color: var(--text-color);
 }
 
-/* Gallery Grid */
+/*
+  ========== GALLERY GRID LAYOUT ==========
+*/
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 20px;
 }
 
+/* Extra breakpoints for large, medium, small screens */
 @media (min-width: 1200px) {
   .gallery {
     grid-template-columns: repeat(4, 1fr);
@@ -41,59 +61,76 @@
   }
 }
 
-/* Gallery Item */
+/*
+  ========== GALLERY ITEMS ==========
+*/
 .gallery-item {
   position: relative;
   cursor: pointer;
   overflow: hidden;
   border-radius: 8px;
-  box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 4px,
-    rgba(0, 0, 0, 0.3) 0px 7px 13px -3px, rgba(0, 0, 0, 0.2) 0px -3px 0px inset;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: var(--box-shadow-1);
+  transition: transform var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
 }
 
 .gallery-item:hover {
   transform: translateY(-5px);
-  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--box-shadow-2);
 }
 
-/* Media (Image/Video) */
+/*
+  ========== MEDIA (IMAGES / VIDEOS) ==========
+*/
 .gallery-media {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.3s ease;
+  border: 1px solid var(--light-border);
+  transition: transform var(--transition-speed) ease, border var(--transition-speed) ease;
 }
 
 .gallery-item:hover .gallery-media {
   transform: scale(1.05);
+  border-color: var(--accent-color);
 }
 
-/* Video Thumbnail */
+/*
+  ========== VIDEO THUMBNAIL ==========
+*/
 .video-thumbnail {
   position: relative;
 }
 
-.video-thumbnail video {
-  transition: transform 0.3s ease;
+.video-thumbnail img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
 }
 
-.video-thumbnail:hover video {
-  transform: scale(1.05);
-}
-
+/* 
+  Overlay "Play" icon 
+*/
 .play-icon {
   position: absolute;
+  font-size: 2.5rem;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 2rem;
   pointer-events: none;
+  color: rgba(255, 255, 255, 0.8);
+  transition: transform var(--transition-speed) ease, color var(--transition-speed) ease;
 }
 
-/* Overlay */
+.video-thumbnail:hover .play-icon {
+  transform: translate(-50%, -50%) scale(1.1);
+  color: var(--accent-color);
+}
+
+/*
+  ========== OVERLAY WITH FILENAME ==========
+*/
 .overlay {
   position: absolute;
   bottom: 0;
@@ -103,22 +140,23 @@
   padding: 10px;
   text-align: center;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity var(--transition-speed) ease;
 }
 
 .gallery-item:hover .overlay {
   opacity: 1;
 }
 
-/* Filename Text */
 .filename {
-  font-size: 1rem;
+  font-size: 0.95rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Loader, Error, and Empty States */
+/*
+  ========== LOADER, ERROR, AND EMPTY STATES ==========
+*/
 .loader-container,
 .error-message,
 .empty-gallery {
@@ -126,13 +164,18 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 60vh;
-  color: #555;
+  min-height: 50vh;
+  color: var(--gray-555);
+  font-size: 1rem;
+  text-align: center;
 }
 
+/* 
+  ========== LOADER ANIMATION 
+*/
 .loader {
   border: 8px solid #f3f3f3;
-  border-top: 8px solid #555;
+  border-top: 8px solid var(--gray-555);
   border-radius: 50%;
   width: 60px;
   height: 60px;
@@ -146,19 +189,32 @@
   }
 }
 
-/* Modal Styles */
+/* 
+  ========== ERROR MESSAGE ==========
+*/
+.error-message {
+  color: var(--danger-color);
+}
+
+/*
+  ========== MODAL STYLES ==========
+*/
 .modal {
   position: relative;
   background: #fff;
   padding: 20px;
-  width: 90%;
+  width: auto;
   max-width: 800px;
   max-height: 90vh;
   margin: auto;
   border-radius: 8px;
   overflow: auto;
-  /* Added z-index to ensure modal is above other content */
+  box-shadow: var(--box-shadow-2);
+  animation: fadeInUp var(--transition-speed) ease;
   z-index: 1001;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .overlay-modal {
@@ -167,14 +223,28 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  position: absolute;
+  position: fixed;
   top: 0;
   width: 100vw;
-  min-height: 100vh;
+  height: 100vh;
   right: 0;
 }
 
-/* Close Button */
+/* Subtle fade-in animation for the modal content */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+  ========== CLOSE BUTTON ==========
+*/
 .close-button {
   position: absolute;
   top: 15px;
@@ -182,40 +252,29 @@
   background: transparent;
   border: none;
   cursor: pointer;
-  color: #555;
-  transition: color 0.3s ease;
+  color: var(--gray-555);
+  transition: color var(--transition-speed) ease;
 }
 
 .close-button:hover {
-  color: #000;
-  z-index: 999999;
+  color: var(--accent-color);
+  z-index: 9999;
 }
 
-/* Modal Media */
+/*
+  ========== MODAL MEDIA ==========
+*/
 .modal-media {
-  width: 100%;
+  /* width: 100%; */
   height: auto;
+  max-height: 80vh;
   border-radius: 8px;
+  display: block;
 }
 
-/* Responsive Adjustments */
-@media (max-width: 600px) {
-  .modal {
-    padding: 10px;
-  }
-
-  .close-button {
-    top: 10px;
-    right: 10px;
-  }
-
-  .modal-media {
-    width: 100%;
-    height: auto;
-  }
-}
-
-/* Unsupported File Styles */
+/*
+  ========== UNSUPPORTED FILE STYLES ==========
+*/
 .unsupported-file {
   display: flex;
   flex-direction: column;
@@ -225,9 +284,96 @@
   color: #888;
   padding: 20px;
   text-align: center;
+  background: var(--bg-color);
+  border: 1px solid var(--light-border);
+  border-radius: 8px;
 }
 
 .unsupported-file p {
   margin-top: 10px;
   font-size: 1rem;
+}
+
+/* Frosted (blur) effect when thumbnails are hidden */
+.frosted .gallery-media {
+  filter: blur(30px) brightness(0.6);
+  transition: filter var(--transition-speed) ease;
+}
+
+/* Eye Toggle Container */
+.eye-toggle-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.eye-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background-color: var(--accent-color);
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color var(--transition-speed) ease;
+  width: 80px;
+}
+
+.eye-toggle-btn:hover {
+  background-color: var(--accent-hover);
+}
+
+/* "See More" Button */
+.see-more-container {
+  text-align: center;
+  margin-top: 1rem;
+}
+.see-more-btn {
+  background-color: var(--accent-color);
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color var(--transition-speed) ease;
+}
+.see-more-btn:hover {
+  background-color: var(--accent-hover);
+}
+
+/* Thumbnails loading overlay or text */
+.thumbnails-loader {
+  position: fixed;
+  top: 120px; /* adjust if you have a header */
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0,0,0,0.8);
+  color: #fff;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  z-index: 999;
+  font-size: 1rem;
+}
+
+
+/* 
+  ========== RESPONSIVE ADJUSTMENTS ==========
+*/
+@media (max-width: 600px) {
+  .modal {
+    padding: 10px;
+  }
+
+  .close-button {
+    top: 10px;
+    right: 10px;
+  }
+  .modal-media {
+    width: 100%;
+    height: auto;
+  }
 }

@@ -6,11 +6,15 @@ import LoginForm from "./pages/LoginForm";
 import SignUpForm from "./pages/SignUpForm";
 import FileUpload from "./pages/FileUpload";
 import FileList from "./pages/FileList";
+import NavBar from "./components/Navbar/Navbar";
+import Logout from "./components/Logout/Logout"
+import './App.css'
 
 // Create a reusable axios instance with secure defaults
 const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_BASE_URL,
   withCredentials: true, // Always include cookies
+  validateStatus: (status) => status < 500,
 });
 
 // Protected Route Component
@@ -28,6 +32,8 @@ const PublicRoute = ({ isAuthenticated, children }) => {
   }
   return children;
 };
+
+
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -54,6 +60,11 @@ const App = () => {
     }
   };
 
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setUser(null);
+  };
+
   // Initial authentication check on mount
   useEffect(() => {
     checkAuthStatus();
@@ -65,6 +76,7 @@ const App = () => {
 
   return (
     <main>
+      <NavBar isAuthenticated={isAuthenticated}/>
       <Routes>
         {/* Public routes for login and signup */}
         <Route
@@ -82,7 +94,10 @@ const App = () => {
           path="/signup"
           element={
             <PublicRoute isAuthenticated={isAuthenticated}>
-              <SignUpForm axiosInstance={axiosInstance} />
+              <SignUpForm 
+                axiosInstance={axiosInstance} 
+                onSignupSuccess={checkAuthStatus}
+              />
             </PublicRoute>
           }
         />
@@ -93,7 +108,7 @@ const App = () => {
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
               {/* <h1>You are authenticated as {user?.username}</h1> */}
-              <FileUpload axiosInstance={axiosInstance} />{" "}
+              <FileList axiosInstance={axiosInstance} />
               {/* Include FileUpload */}
             </ProtectedRoute>
           }
@@ -108,15 +123,12 @@ const App = () => {
             </ProtectedRoute>
           }
         />
-
-        {/* All Users Files Here */}
         <Route
-          path="/files"
+          path="/logout"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <FileList axiosInstance={axiosInstance} />
-            </ProtectedRoute>
-          }
+              <Logout axiosInstance={axiosInstance} onLogout={handleLogout} />
+            </ProtectedRoute>} 
         />
 
         {/* Catch-all route to redirect unknown paths */}

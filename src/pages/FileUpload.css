@@ -1,158 +1,180 @@
-/* FileUpload.css */
+.upload-card {
+  /* The entire card is now a drop zone */
+  position: relative;
+  max-width: 480px;
+  width: 90%;
+  margin: 2rem auto;
+  padding: 2rem;
+  background-color: var(--card-bg-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
 
-.upload-container {
+  /* Drag & Drop styling */
+  border: 2px dashed var(--primary-color);
+  text-align: center;
+  cursor: pointer;
+  transition: background-color var(--transition-speed);
+
+  animation: fadeIn 0.4s ease-in-out;
+}
+
+.upload-card.drag-over {
+  background-color: var(--secondary-color);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.upload-title {
+  margin: 0 0 1rem;
+  color: var(--primary-color);
+}
+
+/*
+  ========== UPLOAD FORM CONTENTS ==========
+*/
+.upload-form {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 40px 20px;
-  background-color: #f9f9f9;
-  min-height: 100vh;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  gap: 1rem;
 }
 
-.upload-form {
-  background-color: #fff;
-  padding: 30px 40px;
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  max-width: 500px;
-}
-
+/*
+  ========== LABEL & HIDDEN FILE INPUT ==========
+*/
 .file-label {
-  display: inline-block;
-  padding: 10px 20px;
-  background-color: #007bff;
-  color: #fff;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  margin-bottom: 10px;
-  text-align: center;
-  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--primary-color);
+  pointer-events: none; /* So drag events pass through to .upload-card */
 }
 
-.file-label:hover {
-  background-color: #0056b3;
+.file-label-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
 }
 
-/* .file-input {
+.file-label-text {
+  font-size: 1rem;
+}
+
+.file-input {
   display: none;
-} */
+}
 
+/*
+  ========== SELECTED FILES DISPLAY ==========
+*/
 .selected-files {
-  margin-top: 15px;
-}
-
-.selected-files h3 {
-  font-size: 1.2rem;
-  color: #555;
-  margin-bottom: 10px;
-}
-
-.selected-files ul {
-  list-style-type: disc;
-  padding-left: 20px;
-}
-
-.selected-files li {
-  font-size: 1rem;
-  color: #666;
-  margin-bottom: 5px;
-}
-
-.error-message {
-  margin-top: 15px;
-  padding: 10px 15px;
-  background-color: #f8d7da;
-  color: #842029;
-  border-radius: 5px;
-  border: 1px solid #f5c2c7;
-}
-
-.conversion-message {
-  margin-top: 15px;
-  padding: 10px 15px;
-  background-color: #e2e3e5;
-  color: #41464b;
-  border-radius: 5px;
-  border: 1px solid #d3d4d5;
-}
-
-.upload-button {
+  background: var(--secondary-color);
+  padding: 1rem;
+  border-radius: var(--border-radius);
   width: 100%;
-  padding: 12px 20px;
-  margin-top: 20px;
-  background-color: #28a745;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
+  text-align: left;
+}
+
+.selected-files h4 {
+  margin: 0 0 0.5rem 0;
+}
+
+/*
+  ========== MESSAGES ==========
+*/
+.error-message {
+  color: var(--error-color);
   text-align: center;
 }
 
-.upload-button:hover {
-  background-color: #218838;
+.success-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(22, 163, 74, 0.1);
+  color: var(--success-color);
+  border: 1px solid var(--success-color);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--border-radius);
 }
 
-.upload-button.disabled {
-  background-color: #6c757d;
-  cursor: not-allowed;
+.success-icon {
+  font-weight: bold;
+  margin-right: 0.5rem;
 }
 
+/*
+  ========== PROGRESS BAR ==========
+*/
 .progress-bar {
   position: relative;
   width: 100%;
-  height: 20px;
-  background-color: #e9ecef;
-  border-radius: 10px;
-  margin-top: 20px;
+  background: #eee;
+  border-radius: var(--border-radius);
   overflow: hidden;
+  height: 24px;
 }
 
 .progress {
   height: 100%;
-  background-color: #007bff;
-  width: 0%;
-  transition: width 0.4s ease;
+  background: var(--primary-color);
+  transition: width var(--transition-speed) ease;
 }
 
-.progress-bar span {
+.progress-text {
   position: absolute;
+  width: 100%;
+  text-align: center;
   top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.9rem;
+  left: 0;
   color: #fff;
-  line-height: 20px;
+  font-size: 0.85rem;
+  line-height: 24px;
 }
 
-@media (max-width: 600px) {
-  .upload-container {
-    padding: 20px 10px;
-  }
+/*
+  ========== BUTTON STYLES ==========
+*/
+.upload-button {
+  background-color: var(--primary-color);
+  color: #ffffff;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: var(--border-radius);
+  font-size: 1rem;
+  cursor: pointer;
+  width: 80%;
+  transition: background-color var(--transition-speed);
+}
 
-  .upload-form {
-    padding: 20px 25px;
-  }
+.upload-button:hover {
+  background-color: var(--primary-color-hover);
+}
 
-  .file-label {
-    padding: 8px 16px;
-    font-size: 0.9rem;
-  }
+.upload-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
-  .upload-button {
-    padding: 10px 16px;
-    font-size: 0.9rem;
+/*
+  ========== RESPONSIVE DESIGN ==========
+*/
+@media (max-width: 480px) {
+  .upload-card {
+    padding: 1.5rem;
   }
-
-  .progress-bar {
-    height: 15px;
+  .file-label-icon {
+    font-size: 1.8rem;
   }
-
-  .progress-bar span {
-    font-size: 0.8rem;
+  .file-label-text {
+    font-size: 0.95rem;
   }
 }

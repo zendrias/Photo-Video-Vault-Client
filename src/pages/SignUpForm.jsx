@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import forge from "node-forge";
+import { useNavigate } from "react-router-dom";
+import "./SignUpForm.css"; // Importing external CSS for styling
 
-const SignUpForm = ({ axiosInstance }) => {
+const SignUpForm = ({ axiosInstance, onSignupSuccess }) => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [publicKey, setPublicKey] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     async function fetchPublicKey() {
@@ -60,46 +63,65 @@ const SignUpForm = ({ axiosInstance }) => {
       });
 
       console.log(response.data);
+
+      if(response.data.message === "User created") {
+        onSignupSuccess()
+        navigate("/");
+      }
     } catch (error) {
       console.error("Error registering user:", error);
     }
   };
 
   return (
-    <div>
-      <h1>Signup</h1>
-      <form onSubmit={handleSubmit} autoComplete="off">
-        <div>
-          <label>Username</label>
+    <div className="form-container">
+      <h1 className="form-heading">Sign Up</h1>
+      <form onSubmit={handleSubmit} className="form" autoComplete="off">
+        <div className="input-group">
+          <label htmlFor="username" className="input-label">
+            Username
+          </label>
           <input
             type="text"
+            id="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
+            className="input-field"
             autoComplete="username"
           />
         </div>
-        <div>
-          <label>Email</label>
+        <div className="input-group">
+          <label htmlFor="email" className="input-label">
+            Email
+          </label>
           <input
             type="email"
+            id="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            className="input-field"
             autoComplete="email"
           />
         </div>
-        <div>
-          <label>Password</label>
+        <div className="input-group">
+          <label htmlFor="password" className="input-label">
+            Password
+          </label>
           <input
             type="password"
+            id="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            className="input-field"
             autoComplete="new-password"
           />
         </div>
-        <button type="submit">Register</button>
+        <button type="submit" className="submit-btn">
+          Register
+        </button>
       </form>
     </div>
   );

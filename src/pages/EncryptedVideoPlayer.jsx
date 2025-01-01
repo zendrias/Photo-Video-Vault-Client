@@ -1,310 +1,217 @@
 import React, { useEffect, useRef, useState } from "react";
-
+import "./EncryptedVideoPlayer.css"
 /**
- * Constants:
- */
-const INITIAL_SEGMENTS_TO_APPEND = 4;
-const MAX_BUFFER_BYTES_VIDEO = 100 * 1024 * 1024;
+* Constants:
+*/
+const INITIAL_SEGMENTS_TO_APPEND = 15;
+const MAX_BUFFER_BYTES_VIDEO = 150 * 1024 * 1024;
 const MAX_BUFFER_BYTES_AUDIO = 50 * 1024 * 1024;
-const LAZY_BUFFER_THRESHOLD_SEC = 10;
+const LAZY_BUFFER_THRESHOLD_SEC = 25;
 
 export default function EncryptedVideoPlayer({ file, axiosInstance }) {
   const videoRef = useRef(null);
   const mediaSourceRef = useRef(null);
 
+  // Track the last network call to avoid dups
+  const videoLastIndexRef = useRef(null);
+  const audioLastIndexRef = useRef(null);
+  
   const [manifest, setManifest] = useState(null);
   const [error, setError] = useState(null);
   const [loadingManifest, setLoadingManifest] = useState(false);
   const [buffersCreated, setBuffersCreated] = useState(false);
-
-  const [mpdXML, setMpdXML] = useState(null);
-
+  
   // Ranges: each is { start, end, bytes }
   const videoRangesRef = useRef([]);
   const audioRangesRef = useRef([]);
-
+  
   // Track how many segments we have appended so far:
   const [videoNextIndex, setVideoNextIndex] = useState(0);
   const [audioNextIndex, setAudioNextIndex] = useState(0);
+
 
   // Our SourceBuffer references
   const videoSBRef = useRef(null);
   const audioSBRef = useRef(null);
 
-  // A guard to prevent multiple simultaneous fetch calls
-  const fetchInProgressRef = useRef(false);
+  let videoQueue = Promise.resolve();
+  let audioQueue = Promise.resolve();
 
   /************************************************************
-   * 1) Load the manifest
-   ************************************************************/
+  * 1) Load the manifest
+  ************************************************************/
   useEffect(() => {
     if (!file) return;
     let canceled = false;
-
+    
     (async () => {
       setLoadingManifest(true);
       setError(null);
-      console.log("[EncryptedVideoPlayer] Loading manifest...");
-
+      
       try {
         const resp = await axiosInstance.get(`/videos/${file.id}/manifest`);
-        if (!canceled) {
-          console.log("[EncryptedVideoPlayer] Manifest loaded:", resp.data);
-          setManifest(resp.data);
-        }
+        if (!canceled) setManifest(resp.data);
       } catch (err) {
-        console.error("[EncryptedVideoPlayer] Manifest load error:", err);
         if (!canceled) setError("Failed to load manifest");
       } finally {
         if (!canceled) setLoadingManifest(false);
       }
     })();
-
+    
     return () => {
       canceled = true;
     };
   }, [file, axiosInstance]);
-
+  
+  
   /************************************************************
-   * 2) Optional: load MPD for debug
-   ************************************************************/
-  useEffect(() => {
-    if (!manifest || !file) return;
-    let canceled = false;
-
-    (async () => {
-      console.log("[EncryptedVideoPlayer] Loading MPD for debug...");
-      try {
-        const resp = await axiosInstance.get(`/videos/${file.id}/mpd`, {
-          responseType: "text",
-        });
-        if (!canceled) {
-          console.log("[EncryptedVideoPlayer] MPD loaded successfully.");
-          setMpdXML(resp.data);
-        }
-      } catch (err) {
-        console.warn("[EncryptedVideoPlayer] MPD load error:", err);
-      }
-    })();
-
-    return () => {
-      canceled = true;
-    };
-  }, [manifest, file, axiosInstance]);
-
-  /************************************************************
-   * 3) Create MediaSource, set video src
-   ************************************************************/
+  * 2) Create MediaSource, set video src
+  ************************************************************/
   useEffect(() => {
     if (!manifest) return;
     if (!videoRef.current) return;
-
+    
     if (!mediaSourceRef.current) {
       const ms = new MediaSource();
       mediaSourceRef.current = ms;
       videoRef.current.src = URL.createObjectURL(ms);
-      console.log("[EncryptedVideoPlayer] Created MediaSource and set src.");
     }
   }, [manifest]);
-
+  
   /************************************************************
-   * 4) On "sourceopen", create SourceBuffers + do initial appends
-   ************************************************************/
+  * 3) On "sourceopen", create SourceBuffers + do initial appends
+  ************************************************************/
   useEffect(() => {
     const ms = mediaSourceRef.current;
     if (!ms || !manifest) return;
     if (buffersCreated) return;
-
+    
     function onSourceOpen() {
-      if (ms.readyState !== "open") {
-        console.warn("[EncryptedVideoPlayer] MediaSource not open?");
-        return;
-      }
+      if (ms.readyState !== "open") return console.warn("[EncryptedVideoPlayer] MediaSource not open?");
+      
       setBuffersCreated(true);
-      console.log(
-        "[EncryptedVideoPlayer] sourceopen => creating SourceBuffers."
-      );
-
+      
       try {
         const videoSB = ms.addSourceBuffer('video/mp4; codecs="avc1.640028"');
         const audioSB = ms.addSourceBuffer('audio/mp4; codecs="mp4a.40.5"');
+
         videoSBRef.current = videoSB;
         audioSBRef.current = audioSB;
-
+        
         // Also set the known duration
-        if (manifest.durationSec) {
-          console.log(
-            "[EncryptedVideoPlayer] Setting MSE duration =>",
-            manifest.durationSec
-          );
-          ms.duration = manifest.durationSec;
-        }
-
+        if (manifest.durationSec) ms.duration = manifest.durationSec;
+        
         // Append init segments + first few
         appendInitSegments()
-          .then(() => {
-            console.log(
-              "[EncryptedVideoPlayer] Init segments appended successfully."
-            );
-          })
-          .catch((err) => {
-            console.error("[EncryptedVideoPlayer] init append error:", err);
-          });
+          .catch((err) => console.error("[EncryptedVideoPlayer] init append error:", err));
+
       } catch (err) {
-        console.error(
-          "[EncryptedVideoPlayer] SourceBuffer creation error:",
-          err
-        );
+        console.error("[EncryptedVideoPlayer] SourceBuffer creation error: ", err);
       }
     }
-
+    
     ms.addEventListener("sourceopen", onSourceOpen);
-    return () => ms.removeEventListener("sourceopen", onSourceOpen);
+    return () => ms && ms.removeEventListener("sourceopen", onSourceOpen);
   }, [manifest, buffersCreated]);
-
+  
   /************************************************************
-   * 5) timeupdate => maybe fetch next segment
-   ************************************************************/
+  * 5) timeupdate => maybe fetch next segment
+  ************************************************************/
   useEffect(() => {
-    const videoEl = videoRef.current;
-    if (!videoEl) return;
+    if (!videoRef.current) return;
 
     function onTimeUpdate() {
-      const currentTime = videoEl.currentTime;
-      console.log(
-        `[EncryptedVideoPlayer] timeupdate => currentTime: ${currentTime.toFixed(
-          2
-        )}`
-      );
-
-      const vidLastEnd = getLastEndTime(videoRangesRef.current).toFixed(2);
-      const audLastEnd = getLastEndTime(audioRangesRef.current).toFixed(2);
-      console.log(
-        `[EncryptedVideoPlayer] timeupdate => appended video up to ${vidLastEnd}, audio up to ${audLastEnd}`
-      );
-
-      console.log(
-        "currentManifest: ",
-        manifest === null ? " null" : " not null"
-      );
-
+      if (!videoRef.current) return;
       maybeFetchNextSegment();
     }
 
-    videoEl.addEventListener("timeupdate", onTimeUpdate);
-    return () => videoEl.removeEventListener("timeupdate", onTimeUpdate);
+    function onSeeking() {
+      if (!videoRef.current) return;
+      handleSeeking();
+    }
+
+    videoRef.current.addEventListener("timeupdate", onTimeUpdate);
+    videoRef.current.addEventListener("seeking", onSeeking)
+    return () => {
+      if (videoRef?.current != null) {
+        videoRef.current.removeEventListener("timeupdate", onTimeUpdate);
+        videoRef.current.removeEventListener("seeking", onSeeking)
+      }
+    }
+
   }, [manifest]);
 
-  /************************************************************
-   * RENDER
-   ************************************************************/
-  return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
-      {loadingManifest && (
-        <div style={{ color: "#666" }}>Loading manifest…</div>
-      )}
-      {error && <div style={{ color: "red" }}>{error}</div>}
-      <video
-        ref={videoRef}
-        controls
-        style={{ width: "100%", maxHeight: "70vh", background: "#000" }}
-      />
-      {mpdXML && (
-        <div style={{ marginTop: 16, background: "#eee", padding: 10 }}>
-          <h4>MPD Debug:</h4>
-          <pre style={{ whiteSpace: "pre-wrap" }}>{mpdXML}</pre>
-        </div>
-      )}
-    </div>
-  );
+/************************************************************
+* RENDER
+************************************************************/
+return (
+  <div className="video-player-container">
+  {loadingManifest && <div className="player-message loading-message">Loading manifest…</div>}
+  {error && <div className="player-message error-message">{error}</div>}
 
-  /************************************************************
-   * FUNCTIONS
-   ************************************************************/
+  <video
+    ref={videoRef}
+    className="encrypted-video"
+    controls
+    autoPlay={false}
+    muted
+    disableRemotePlayback
+    preload="metadata"
+  />
+</div>
+);
+
+/************************************************************
+* FUNCTIONS
+************************************************************/
 
   async function appendInitSegments() {
-    if (!manifest) {
-      console.warn("[EncryptedVideoPlayer] No manifest in appendInitSegments?");
-      return;
-    }
-
+    if (!manifest) return console.warn("[EncryptedVideoPlayer] No manifest in appendInitSegments?");
+    
     // 1) Video init
     if (manifest.initSegmentVideo) {
-      console.log("[EncryptedVideoPlayer] Fetching video init segment...");
       const data = await fetchSegment(manifest.initSegmentVideo.filename);
-      await appendBufferAsync(videoSBRef.current, data, true);
+      await appendBufferAsync(videoSBRef.current, data, true, videoRangesRef);
       videoRangesRef.current.push({ start: 0, end: 0, bytes: data.byteLength });
-      console.log("[EncryptedVideoPlayer] Appended video init segment.");
     }
-
+    
     // 2) Audio init
     if (manifest.initSegmentAudio) {
-      console.log("[EncryptedVideoPlayer] Fetching audio init segment...");
       const data = await fetchSegment(manifest.initSegmentAudio.filename);
-      await appendBufferAsync(audioSBRef.current, data, false);
+      await appendBufferAsync(audioSBRef.current, data, false, audioRangesRef);
       audioRangesRef.current.push({ start: 0, end: 0, bytes: data.byteLength });
-      console.log("[EncryptedVideoPlayer] Appended audio init segment.");
     }
-
+    
     // 3) Append first X segments so playback can start
-    console.log(
-      `[EncryptedVideoPlayer] Appending first ${INITIAL_SEGMENTS_TO_APPEND} segments for each track...`
-    );
-
     // Video
-    const firstVidSegs = (manifest.segmentsVideo || []).slice(
-      0,
-      INITIAL_SEGMENTS_TO_APPEND
-    );
+    const firstVidSegs = (manifest.segmentsVideo || []).slice(0, INITIAL_SEGMENTS_TO_APPEND);
     for (let i = 0; i < firstVidSegs.length; i++) {
-      await appendOneSegment(
-        true,
-        firstVidSegs[i],
-        videoRangesRef,
-        videoSBRef.current,
-        videoNextIndex + i
-      );
+      await appendOneSegment(true, firstVidSegs[i], videoRangesRef, videoSBRef.current, i);
     }
-    setVideoNextIndex((prev) => prev + firstVidSegs.length);
-
+    
     // Audio
-    const firstAudSegs = (manifest.segmentsAudio || []).slice(
-      0,
-      INITIAL_SEGMENTS_TO_APPEND
-    );
+    const firstAudSegs = (manifest.segmentsAudio || []).slice(0, INITIAL_SEGMENTS_TO_APPEND);
     for (let i = 0; i < firstAudSegs.length; i++) {
-      await appendOneSegment(
-        false,
-        firstAudSegs[i],
-        audioRangesRef,
-        audioSBRef.current,
-        audioNextIndex + i
-      );
+      await appendOneSegment(false, firstAudSegs[i], audioRangesRef, audioSBRef.current, i);
     }
-    setAudioNextIndex((prev) => prev + firstAudSegs.length);
-
-    console.log("[EncryptedVideoPlayer] Finished appending initial segments.");
   }
 
   function maybeFetchNextSegment() {
     const currentManifest = manifest;
     const vEl = videoRef.current;
     const ms = mediaSourceRef.current;
-    if (!currentManifest || !vEl || !ms) {
-      console.log(
-        "[EncryptedVideoPlayer] maybeFetchNextSegment => missing refs?"
-      );
-      return;
-    }
 
+    if (!currentManifest || !vEl || !ms) return console.log("[EncryptedVideoPlayer] maybeFetchNextSegment => missing refs?");
+    
     const totalVid = (currentManifest.segmentsVideo || []).length;
     const totalAud = (currentManifest.segmentsAudio || []).length;
+    
 
-    // If all appended
-    if (videoNextIndex >= totalVid && audioNextIndex >= totalAud) {
-      console.log(
-        "[EncryptedVideoPlayer] All segments appended => check endOfStream..."
-      );
+    let updatedNextVideoIndex, updatedNextAudioIndex;
+    setVideoNextIndex((prev) => updatedNextVideoIndex = prev)
+    setAudioNextIndex((prev) =>  updatedNextAudioIndex = prev)
+    
+    if (updatedNextVideoIndex >= totalVid && updatedNextAudioIndex >= totalAud) {
       if (ms.readyState === "open") {
         console.log("[EncryptedVideoPlayer] Calling endOfStream()...");
         try {
@@ -315,251 +222,121 @@ export default function EncryptedVideoPlayer({ file, axiosInstance }) {
       }
       return;
     }
-
+    
     // If either SourceBuffer is updating, skip
-    if (videoSBRef.current?.updating || audioSBRef.current?.updating) {
-      console.log("[EncryptedVideoPlayer] SB updating => skip for now");
-      return;
-    }
-
+    if (videoSBRef.current?.updating || audioSBRef.current?.updating) return;
+    
     const currentTime = vEl.currentTime;
     const vidLastEnd = getLastEndTime(videoRangesRef.current);
     const audLastEnd = getLastEndTime(audioRangesRef.current);
 
+    // console.log('video range: ', videoRangesRef.current)
+    // console.log(`vidLastEnd ${vidLastEnd}`);
+    
     const distanceVideo = vidLastEnd - currentTime;
     const distanceAudio = audLastEnd - currentTime;
 
-    console.log(
-      `[EncryptedVideoPlayer] maybeFetchNextSegment => currentTime=${currentTime.toFixed(
-        2
-      )}, vidLastEnd=${vidLastEnd.toFixed(2)}, audLastEnd=${audLastEnd.toFixed(
-        2
-      )}, ` +
-        `distanceVideo=${distanceVideo.toFixed(
-          2
-        )}, distanceAudio=${distanceAudio.toFixed(
-          2
-        )}, videoNextIndex=${videoNextIndex}, audioNextIndex=${audioNextIndex}`
-    );
+    console.log(`The video has buffered ${distanceVideo} seconds over the the current time\n`)
 
-    // If either track is below threshold
-    if (
-      distanceVideo <= LAZY_BUFFER_THRESHOLD_SEC ||
-      distanceAudio <= LAZY_BUFFER_THRESHOLD_SEC
-    ) {
-      console.log(
-        "[EncryptedVideoPlayer] => distance <= threshold => fetchNextSegments()"
-      );
-      fetchNextSegments().catch((err) => {
-        console.error("[EncryptedVideoPlayer] lazy fetch error:", err);
-      });
-    } else {
-      console.log("[EncryptedVideoPlayer] => no fetch needed yet");
-    }
+  // If either track is below threshold
+  if (distanceVideo <= LAZY_BUFFER_THRESHOLD_SEC || distanceAudio <= LAZY_BUFFER_THRESHOLD_SEC) {
+    console.log('FETCHING MORE')
+    // if we just made a network request for this content last time, don't do it again
+    if(videoLastIndexRef.current === updatedNextVideoIndex || audioLastIndexRef.current === updatedNextAudioIndex) return
+
+    videoLastIndexRef.current = updatedNextVideoIndex
+    audioLastIndexRef.current = updatedNextAudioIndex
+    
+    fetchSegments(updatedNextVideoIndex, updatedNextAudioIndex)
+      .catch((err) => console.error("lazy fetch error: ", err));
+  } else {
+    console.log("[EncryptedVideoPlayer] => no fetch needed yet");
+  }
   }
 
-  async function fetchNextSegments() {
+  async function fetchSegments(videoSegmentNumber, audioSegmentNumber) {
     const currentManifest = manifest;
-    if (!currentManifest) {
-      console.warn("[EncryptedVideoPlayer] No manifest in fetchNextSegments?");
-      return;
-    }
-    if (!mediaSourceRef.current) {
-      console.warn(
-        "[EncryptedVideoPlayer] No mediaSource in fetchNextSegments?"
-      );
-      return;
-    }
 
-    // concurrency guard
-    if (fetchInProgressRef.current) {
-      console.log(
-        "[EncryptedVideoPlayer] fetchNextSegments => inFlight => skip"
-      );
-      return;
-    }
-    fetchInProgressRef.current = true;
-
+    if (!currentManifest || !mediaSourceRef.current) return console.warn("[EncryptedVideoPlayer] Missing values in fetchSegments()");
+    
     try {
-      // Capture the old indexes in local vars so we fetch the correct segments
-      let oldVideoIndex, oldAudioIndex;
-
-      setVideoNextIndex((prev) => {
-        oldVideoIndex = prev;
-        return prev; // We'll increment only if we actually fetch
-      });
-      setAudioNextIndex((prev) => {
-        oldAudioIndex = prev;
-        return prev; // We'll increment only if we actually fetch
-      });
-
       const totalVid = (currentManifest.segmentsVideo || []).length;
       const totalAud = (currentManifest.segmentsAudio || []).length;
-
-      console.log(
-        `[EncryptedVideoPlayer] fetchNextSegments => videoNextIndex=${oldVideoIndex}, ` +
-          `audioNextIndex=${oldAudioIndex}, totalVidSegments=${totalVid}, totalAudSegments=${totalAud}`
-      );
-
-      // Next video seg if remain
-      if (oldVideoIndex < totalVid) {
-        const segV = currentManifest.segmentsVideo[oldVideoIndex];
-        console.log(
-          `[EncryptedVideoPlayer] => Next video seg index=${oldVideoIndex}, filename=${segV.filename}`
-        );
-        await appendOneSegment(
-          true,
-          segV,
-          videoRangesRef,
-          videoSBRef.current,
-          oldVideoIndex
-        );
-        // Now increment the state
-        setVideoNextIndex((prev) => prev + 1);
+      
+      // append the next video segment if any more remain
+      if (videoSegmentNumber < totalVid) {
+        const segV = currentManifest.segmentsVideo[videoSegmentNumber];
+        await appendOneSegment(true, segV, videoRangesRef, videoSBRef.current, videoSegmentNumber);
       }
-
-      // Next audio seg if remain
-      if (oldAudioIndex < totalAud) {
-        const segA = currentManifest.segmentsAudio[oldAudioIndex];
-        console.log(
-          `[EncryptedVideoPlayer] => Next audio seg index=${oldAudioIndex}, filename=${segA.filename}`
-        );
-        await appendOneSegment(
-          false,
-          segA,
-          audioRangesRef,
-          audioSBRef.current,
-          oldAudioIndex
-        );
-        setAudioNextIndex((prev) => prev + 1);
+      // Next the audio segment if any more remain
+      if (audioSegmentNumber < totalAud) {
+        const segA = currentManifest.segmentsAudio[audioSegmentNumber];
+        await appendOneSegment(false, segA, audioRangesRef, audioSBRef.current, audioSegmentNumber);
       }
     } catch (err) {
-      console.error("[EncryptedVideoPlayer] fetchNextSegments error:", err);
-    } finally {
-      fetchInProgressRef.current = false;
+      console.error("[EncryptedVideoPlayer] fetchSegments error:", err);
     }
   }
 
   async function appendOneSegment(isVideo, segObj, rangesRef, sb, segIndex) {
     const currentManifest = manifest;
-    if (!currentManifest) {
-      console.warn("[EncryptedVideoPlayer] No manifest in appendOneSegment?");
-      return;
+    if (!currentManifest || !segObj || !sb) {
+      return console.warn(`[EncryptedVideoPlayer] !manifest || !segObj || !sb for ${isVideo ? "video" : "audio"} in appendOneSegment`);
     }
-    if (!segObj) {
-      console.warn(
-        `[EncryptedVideoPlayer] No segment object at index=${segIndex}`
-      );
-      return;
-    }
-    if (!sb) {
-      console.warn(
-        `[EncryptedVideoPlayer] No sourceBuffer for ${
-          isVideo ? "video" : "audio"
-        }?`
-      );
-      return;
-    }
-
-    console.log(
-      `[EncryptedVideoPlayer] appendOneSegment => ${
-        isVideo ? "video" : "audio"
-      } segIndex=${segIndex}, ` + `filename=${segObj.filename}`
-    );
-
+    
     // 1) Fetch
-    console.log(
-      `[EncryptedVideoPlayer] Fetching segment ${segObj.filename}...`
-    );
     const data = await fetchSegment(segObj.filename);
 
-    // 2) Possibly remove older data
-    maybeRemoveByteOverLimit(sb, rangesRef, data.byteLength, isVideo);
-
     // 3) Append
-    await appendBufferAsync(sb, data, isVideo);
+    await appendBufferAsync(sb, data, isVideo, rangesRef); // revisit this
 
     // 4) Compute segDuration
-    let segDuration = 1; // fallback
-    if (isVideo && currentManifest.segmentDurationsVideo) {
-      segDuration =
-        currentManifest.segmentDurationsVideo[segIndex] ?? segDuration;
-    } else if (!isVideo && currentManifest.segmentDurationsAudio) {
-      segDuration =
-        currentManifest.segmentDurationsAudio[segIndex] ?? segDuration;
+    let segDuration = 2; // fallback
+    if (isVideo) {
+      segDuration = currentManifest?.segmentDurationsVideo[segIndex] ?? segDuration;
+      setVideoNextIndex(() => segIndex + 1);
+    } else {
+      segDuration = currentManifest?.segmentDurationsAudio[segIndex] ?? segDuration;
+      setAudioNextIndex(() => segIndex + 1);
     }
 
     // 5) Update timeline
     const lastEnd = getLastEndTime(rangesRef.current);
+    /* if the current time > 15 secs from the last end or , a seek has occurred*/
     const segStart = lastEnd;
     const segEnd = segStart + segDuration;
-
-    rangesRef.current.push({
-      start: segStart,
-      end: segEnd,
-      bytes: data.byteLength,
-    });
-
-    console.log(
-      `[EncryptedVideoPlayer] Appended ${
-        isVideo ? "video" : "audio"
-      } seg #${segIndex}, ` +
-        `segDuration=${segDuration.toFixed(3)}, range=(${segStart.toFixed(
-          3
-        )}..${segEnd.toFixed(3)}), bytes=${data.byteLength}`
-    );
+    
+    rangesRef.current.push({ start: segStart, end: segEnd, bytes: data.byteLength });
   }
 
-  function maybeRemoveByteOverLimit(
-    sourceBuffer,
-    rangesRef,
-    newBytes,
-    isVideo
-  ) {
+  async function maybeRemoveByteOverLimit(sourceBuffer, rangesRef, newBytes, isVideo) {
     const maxBytes = isVideo ? MAX_BUFFER_BYTES_VIDEO : MAX_BUFFER_BYTES_AUDIO;
     const ranges = rangesRef.current;
-
+    
     const currentUsage = ranges.reduce((acc, r) => acc + r.bytes, 0);
-    if (currentUsage + newBytes <= maxBytes) {
-      return; // no removal needed
-    }
 
-    console.log(
-      `[EncryptedVideoPlayer] Exceeding buffer limit for ${
-        isVideo ? "VIDEO" : "AUDIO"
-      }: currentUsage=${currentUsage}, newBytes=${newBytes}, max=${maxBytes}`
-    );
+    console.log(`\nThe buffer currently has ${currentUsage} bytes in it\n`)
+    console.log(`We are adding ${newBytes} new bytes, for a total of ${currentUsage + newBytes} / ${maxBytes}\n`)
+    console.log(`That means we ${currentUsage + newBytes <= maxBytes ? 'DO NOT NEED' : 'NEED'} to remove bytes\n`)
 
+    if (currentUsage + newBytes <= maxBytes) return;
+    
+    console.log(' - - - - - - REMOVING BYTES! - - - - - - ')
     let removeIndex = 0;
     let usageTemp = currentUsage;
 
     while (usageTemp + newBytes > maxBytes && removeIndex < ranges.length) {
       const oldest = ranges[removeIndex];
-      console.log(
-        `[EncryptedVideoPlayer] Removing older ${
-          isVideo ? "VIDEO" : "AUDIO"
-        } chunk [${oldest.start}, ${oldest.end}] => ${oldest.bytes} bytes`
-      );
       try {
-        sourceBuffer.remove(oldest.start, oldest.end);
+        await clearBufferAsync(sourceBuffer, oldest.start, oldest.end)
       } catch (err) {
-        console.warn(
-          "[EncryptedVideoPlayer] sourceBuffer.remove() error:",
-          err
-        );
+        console.warn("[EncryptedVideoPlayer] sourceBuffer.remove() error: ", err);
       }
       usageTemp -= oldest.bytes;
       removeIndex++;
     }
 
-    if (removeIndex > 0) {
-      ranges.splice(0, removeIndex);
-      console.log(
-        `[EncryptedVideoPlayer] Removed ${removeIndex} older chunk(s) from ${
-          isVideo ? "video" : "audio"
-        } buffer.`
-      );
-    }
+    if (removeIndex > 0) ranges.splice(0, removeIndex);
   }
 
   function getLastEndTime(ranges) {
@@ -568,67 +345,172 @@ export default function EncryptedVideoPlayer({ file, axiosInstance }) {
   }
 
   async function fetchSegment(filename) {
-    console.log(`[EncryptedVideoPlayer] Requesting segment ${filename}...`);
     let resp;
     try {
-      resp = await axiosInstance.get(`/videos/${file.id}/segment/${filename}`, {
-        responseType: "arraybuffer",
-      });
+      resp = await axiosInstance.get(`/videos/${file.id}/segment/${filename}`, { responseType: "arraybuffer" });
     } catch (err) {
       console.error("[EncryptedVideoPlayer] fetchSegment error:", err);
       throw err;
     }
-    console.log(
-      `[EncryptedVideoPlayer] Segment ${filename} fetched (${resp.data.byteLength} bytes).`
-    );
     return new Uint8Array(resp.data);
   }
 
-  function appendBufferAsync(sourceBuffer, data, isVideo) {
-    return new Promise((resolve, reject) => {
-      if (!sourceBuffer) {
-        return reject(
-          new Error("[EncryptedVideoPlayer] No sourceBuffer to append to.")
-        );
-      }
-
-      const onUpdateEnd = () => {
+  function appendBufferAsync(sourceBuffer, data, isVideo, rangesRef) {
+    return new Promise(async (resolve, reject) => {
+      if (!sourceBuffer) return reject(new Error("[EncryptedVideoPlayer] No sourceBuffer to append to."));
+      
+      const onUpdateEnd = async () => {
         sourceBuffer.removeEventListener("updateend", onUpdateEnd);
         sourceBuffer.removeEventListener("error", onError);
-        console.log(
-          `[EncryptedVideoPlayer] appendBufferAsync -> updateend for ${
-            isVideo ? "video" : "audio"
-          }`
-        );
+        await maybeRemoveByteOverLimit(sourceBuffer, rangesRef, data.byteLength, isVideo);
         resolve();
       };
+
       const onError = (e) => {
         sourceBuffer.removeEventListener("updateend", onUpdateEnd);
         sourceBuffer.removeEventListener("error", onError);
-        console.error(
-          `[EncryptedVideoPlayer] SourceBuffer error for ${
-            isVideo ? "video" : "audio"
-          }:`,
-          e
-        );
+        console.error(`[EncryptedVideoPlayer] SourceBuffer error for ${isVideo ? "video" : "audio"}: `, e);
         reject(e || new Error("SourceBuffer error"));
       };
+
       sourceBuffer.addEventListener("updateend", onUpdateEnd);
       sourceBuffer.addEventListener("error", onError);
 
-      try {
-        sourceBuffer.appendBuffer(data);
-        console.log(
-          `[EncryptedVideoPlayer] appending ${data.byteLength} bytes to ${
-            isVideo ? "video" : "audio"
-          } buffer...`
-        );
-      } catch (err) {
+    try {
+      await waitForIdle(sourceBuffer)
+      sourceBuffer.appendBuffer(data);
+    } catch (err) {
+      sourceBuffer.removeEventListener("updateend", onUpdateEnd);
+      sourceBuffer.removeEventListener("error", onError);
+      console.error("[EncryptedVideoPlayer] appendBuffer error:", err);
+      reject(err);
+    }
+  });
+  }
+
+  async function handleSeeking() {
+    const { currentTime } = videoRef.current;
+
+    const nextAudioSegments = getNextSegmentsNumbers(false)
+    const nextVideoSegments = getNextSegmentsNumbers(true)
+    const numberOfSegmentsToFetch = Math.ceil(LAZY_BUFFER_THRESHOLD_SEC / Math.min(manifest.segmentDurationsVideo[nextVideoSegments], manifest.segmentDurationsAudio[nextAudioSegments]))
+
+    await clearBufferQueued(true, 0, Infinity);
+    videoRangesRef.current = ([{ start: currentTime, end: currentTime, bytes: 0 }]);
+
+    await clearBufferQueued(false, 0, Infinity);
+    audioRangesRef.current = ([{ start: currentTime, end: currentTime, bytes: 0 }]);
+
+    
+    for(let i = 0; i < numberOfSegmentsToFetch; i += 1) {
+      await fetchSegments(nextVideoSegments + i, nextAudioSegments + i)
+    }
+  }
+
+  function getNextSegmentsNumbers(isVideo) {
+    const manifestSegmentDurations = manifest[`segmentDurations${isVideo ? 'Video' : 'Audio'}`]
+    const { currentTime } = videoRef.current;
+    let acc = 0;
+
+    for(let i = 0; i < manifestSegmentDurations.length; i += 1) {
+      acc += manifestSegmentDurations[i]
+      if (acc >= currentTime) return i >= 1 ? i - 1 : 0
+    }
+
+    return manifestSegmentDurations.length - 2
+  }
+
+  async function clearBufferAsync(sbRef, start = 0, end = Infinity) {
+    return new Promise((resolve, reject) => {
+      // if there's nothing buffered, just resolve
+      if (!sbRef.current?.buffered || sbRef.current.buffered.length === 0) {
+        return resolve();
+      }
+
+      const sourceBuffer = sbRef.current;
+
+      function onUpdateEnd() {
         sourceBuffer.removeEventListener("updateend", onUpdateEnd);
         sourceBuffer.removeEventListener("error", onError);
-        console.error("[EncryptedVideoPlayer] appendBuffer error:", err);
+        console.log('- - Buffer Cleared - -')
+        resolve();
+      }
+
+      function onError(e) {
+        sourceBuffer.removeEventListener("updateend", onUpdateEnd);
+        sourceBuffer.removeEventListener("error", onError);
+        console.error("[EncryptedVideoPlayer] Error clearing buffers:", e);
+        reject(e);
+      }
+
+      try {
+        sourceBuffer.addEventListener("updateend", onUpdateEnd);
+        sourceBuffer.addEventListener("error", onError);
+
+        sourceBuffer.remove(start, end);
+      } catch (err) {
+        console.error("[EncryptedVideoPlayer] remove() failed:", err);
+        sourceBuffer.removeEventListener("updateend", onUpdateEnd);
+        sourceBuffer.removeEventListener("error", onError);
         reject(err);
       }
     });
   }
+
+  async function waitForIdle(sourceBuffer) {
+    return new Promise((resolve, reject) => {
+      // If it's already idle, we're done
+      if (!sourceBuffer.updating) {
+        return resolve();
+      }
+
+      function onUpdateEnd() {
+        if (!sourceBuffer.updating) {
+          sourceBuffer.removeEventListener('updateend', onUpdateEnd);
+          sourceBuffer.removeEventListener('error', onError);
+          resolve();
+        }
+      }
+      function onError(e) {
+        sourceBuffer.removeEventListener('updateend', onUpdateEnd);
+        sourceBuffer.removeEventListener('error', onError);
+        reject(e);
+      }
+
+      sourceBuffer.addEventListener('updateend', onUpdateEnd);
+      sourceBuffer.addEventListener('error', onError);
+    });
+  }
+
+  function queueSourceBufferOp(isVideo, op) {
+    if (isVideo) {
+      // chain onto videoQueue
+      videoQueue = videoQueue
+        .then(() => op())
+        .catch((err) => {
+          console.error("Video operation error:", err);
+          // handle error or just continue
+        });
+      return videoQueue;
+    } else {
+      // chain onto audioQueue
+      audioQueue = audioQueue
+        .then(() => op())
+        .catch((err) => {
+          console.error("Audio operation error:", err);
+        });
+      return audioQueue;
+    }
+  }
+
+  function clearBufferQueued(isVideo, start = 0, end = Infinity) {
+    return queueSourceBufferOp(isVideo, async () => {
+      // 1) wait for any current operation to end:
+      const sb = isVideo ? videoSBRef.current : audioSBRef.current;
+      await waitForIdle(sb);
+      // 2) schedule remove
+      await clearBufferAsync(sb, start, end);
+    });
+  }
+  
 }

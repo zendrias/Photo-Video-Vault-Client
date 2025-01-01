@@ -1,0 +1,102 @@
+<!-- breed-z-animated-logo-compact-modern.svg -->
+<svg
+  width="280"
+  height="100"
+  viewBox="0 0 280 100"
+  xmlns="http://www.w3.org/2000/svg"
+  fill="none"
+>
+  <!--
+    1) DEFINITIONS (Gradients)
+       - lockGradient for the lock body & handle
+       - textGradient for "Breed Z"
+  -->
+  <defs>
+    <!-- Lock gradient: subtle metallic from deep to lighter blue -->
+    <linearGradient id="lockGradient" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#004A9F" />
+      <stop offset="100%" stop-color="#00A4FF" />
+    </linearGradient>
+
+    <!-- Text gradient: from medium to light blue -->
+    <linearGradient id="textGradient" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#0066CC" />
+      <stop offset="100%" stop-color="#66CCFF" />
+    </linearGradient>
+  </defs>
+
+  <!--
+    2) LOCK (Left)
+       - Positioned at (10, 15) so the total vertical height is ~70px.
+       - Lock body is a rounded rectangle (8px radius)
+       - Handle (shackle) is a semicircle path that rotates for the animation
+  -->
+  <g transform="translate(10,15)">
+    <!-- Lock body -->
+    <rect
+      x="0"
+      y="30"
+      width="50"
+      height="45"
+      rx="8"
+      fill="url(#lockGradient)"
+    />
+
+    <!-- Lock handle group (for rotation) -->
+    <g transform="translate(25,30)">
+      <!-- Semicircle path for the handle -->
+      <path
+        d="M -15,0 A 15,15 0 0 1 15,0"
+        fill="none"
+        stroke="url(#lockGradient)"
+        stroke-width="6"
+        stroke-linecap="round"
+      >
+        <!-- 
+          Animate: rotate from 0° (locked) to -20° (unlocked) and back.
+          2s total, infinite repeat.
+        -->
+        <animateTransform
+          attributeName="transform"
+          attributeType="XML"
+          type="rotate"
+          begin="0s"
+          dur="2s"
+          values="0; -20; 0"
+          keyTimes="0; 0.5; 1"
+          repeatCount="indefinite"
+        />
+      </path>
+    </g>
+
+    <!-- Keyhole (small circle + rectangle) -->
+    <circle cx="25" cy="50" r="3.5" fill="#fff" opacity="0.9" />
+    <rect
+      x="23.5"
+      y="50"
+      width="3"
+      height="6"
+      rx="1.5"
+      fill="#fff"
+      opacity="0.9"
+    />
+  </g>
+
+  <!--
+    3) TEXT: "Breed Z"
+       - Placed to the right of the lock, with minimal bounding box.
+       - x=70 to leave some spacing from the lock, y=50 for vertical centering.
+  -->
+  <text
+    x="70"
+    y="50"
+    font-size="32"
+    font-weight="bold"
+    font-family="sans-serif"
+    text-anchor="start"
+    alignment-baseline="middle"
+    fill="url(#textGradient)"
+  >
+    Breed Z
+  </text>
+</svg>

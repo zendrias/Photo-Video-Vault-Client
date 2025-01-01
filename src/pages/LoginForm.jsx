@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import forge from "node-forge";
 import CryptoJS from "crypto-js";
 import { useNavigate } from "react-router-dom";
+import "./LoginForm.css"; // Importing external CSS for styling
 
 const LoginForm = ({ axiosInstance, onLoginSuccess }) => {
   const [username, setUsername] = useState("");
@@ -74,33 +75,43 @@ const LoginForm = ({ axiosInstance, onLoginSuccess }) => {
   };
 
   return (
-    <div>
-      <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>Username:</label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            autoComplete="username"
-          />
-        </div>
-        <div>
-          <label>Password:</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoComplete="current-password"
-          />
-        </div>
-        <button type="submit" disabled={loading}>
-          {loading ? "Authenticating..." : "Login"}
-        </button>
-      </form>
+    <div className="auth-wrapper">
+      <div className="form-container">
+        <h2 className="form-heading">Login</h2>
+        <form onSubmit={handleSubmit} className="form">
+          <div className="input-group">
+            <label htmlFor="username" className="input-label">
+              Username
+            </label>
+            <input
+              type="text"
+              id="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className="input-field"
+              autoComplete="username"
+            />
+          </div>
+          <div className="input-group">
+            <label htmlFor="password" className="input-label">
+              Password
+            </label>
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="input-field"
+              autoComplete="current-password"
+            />
+          </div>
+          <button type="submit" className="submit-btn" disabled={loading}>
+            {loading ? "Authenticating..." : "Login"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

@@ -10,6 +10,7 @@ const FileUpload = ({ axiosInstance }) => {
   const [error, setError] = useState(null);
   const [jobIds, setJobIds] = useState([]);
   const [uploadComplete, setUploadComplete] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     // Fetch the server's RSA public key to encrypt our AES key
@@ -29,6 +30,46 @@ const FileUpload = ({ axiosInstance }) => {
     setSelectedFiles(e.target.files);
     setError(null);
     setUploadComplete(false);
+  };
+
+  // ========= DRAG & DROP HANDLERS =========
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles.length > 0) {
+      setSelectedFiles(droppedFiles);
+      setError(null);
+      setUploadComplete(false);
+    }
+  };
+  // ========================================
+
+  // Trigger hidden input when clicking the card (except for the Upload button)
+  const handleCardClick = (e) => {
+    // If the user clicked the Upload button, don't open the file dialog
+    if (e.target.tagName.toLowerCase() === "button") return;
+    document.getElementById("file-input").click();
   };
 
   const handleUpload = async () => {
@@ -82,6 +123,7 @@ const FileUpload = ({ axiosInstance }) => {
       if (response.data.jobIds) {
         setJobIds(response.data.jobIds);
       }
+
       setUploadComplete(true);
       setSelectedFiles([]);
       document.getElementById("file-input").value = "";
@@ -94,9 +136,18 @@ const FileUpload = ({ axiosInstance }) => {
   };
 
   return (
-    <div className="upload-container">
-      <h2>Upload Files</h2>
+    <div
+      className={`upload-card ${isDragging ? "drag-over" : ""}`}
+      onClick={handleCardClick}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* <h2 className="upload-title">Secure File Upload</h2> */}
+
       <div className="upload-form">
+        {/* Hidden input for selecting files */}
         <input
           id="file-input"
           type="file"
@@ -105,8 +156,18 @@ const FileUpload = ({ axiosInstance }) => {
           accept="image/*,video/*"
           className="file-input"
         />
+
+        {/* Display instructions in a label (but no pointer events) */}
+        <label htmlFor="file-input" className="file-label">
+          <span className="file-label-icon">📂</span>
+          <span className="file-label-text">
+            {isDragging ? "Drop files here" : "Click / Drag & Drop files"}
+          </span>
+        </label>
+
         {selectedFiles.length > 0 && (
           <div className="selected-files">
+            <h4>Selected Files:</h4>
             <ul>
               {Array.from(selectedFiles).map((file, index) => (
                 <li key={index}>
@@ -116,18 +177,29 @@ const FileUpload = ({ axiosInstance }) => {
             </ul>
           </div>
         )}
+
         {error && <div className="error-message">{error}</div>}
+
         {uploading && (
           <div className="progress-bar">
             <div className="progress" style={{ width: `${progress}%` }}></div>
-            <span>{progress}%</span>
+            <span className="progress-text">{progress}%</span>
           </div>
         )}
+
         {uploadComplete && (
-          <div className="success-message">Upload initiated successfully!</div>
+          <div className="success-message">
+            <span className="success-icon">✔</span>
+            Upload initiated successfully!
+          </div>
         )}
+
+        {/* Stop event propagation so clicking the button does NOT open file dialog */}
         <button
-          onClick={handleUpload}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleUpload();
+          }}
           disabled={uploading || selectedFiles.length === 0}
           className="upload-button"
         >
