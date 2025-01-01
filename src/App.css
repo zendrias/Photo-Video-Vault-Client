@@ -36,3 +36,73 @@ body {
   color: var(--text-color);
   user-select: none;
 }
+
+/* 
+  ========== SESSION EXPIRED POPUP STYLES ==========
+*/
+
+/* Dark semi-transparent overlay covering the entire screen */
+.session-expired-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5); /* Overlay color */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999; /* Ensure it appears above other content */
+}
+
+/* Centered popup container */
+.session-expired-popup {
+  background-color: #fff;
+  width: 90%;
+  max-width: 400px;
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  animation: slideDown 0.3s ease; /* subtle entry animation */
+}
+
+/* Heading & text styling */
+.session-expired-popup h2 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  font-size: 1.25rem;
+  color: #333;
+}
+.session-expired-popup p {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  color: #555;
+}
+
+/* "Log Back In" button styling */
+.session-expired-popup button {
+  background-color: #4f46e5; /* purplish-blue accent */
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  padding: 0.5rem 1.2rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.session-expired-popup button:hover {
+  background-color: #4338ca; /* slightly darker accent */
+}
+
+/* A simple "slide down" animation */
+@keyframes slideDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

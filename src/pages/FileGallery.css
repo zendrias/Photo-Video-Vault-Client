@@ -246,19 +246,29 @@
   ========== CLOSE BUTTON ==========
 */
 .close-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 4px;
+  border: 1px solid var(--accent-color);;
   position: absolute;
   top: 15px;
   right: 15px;
   background: transparent;
   border: none;
   cursor: pointer;
-  color: var(--gray-555);
-  transition: color var(--transition-speed) ease;
+  color: #fff;
+  transition: color var(--transition-speed) ease-in-out, background-color var(--transition-speed) ease-in-out, box-shadow var(--transition-speed) ease-in-out;
+  z-index: 9999999;
+  transform: scale(1.2);
+  border-radius: 50vw;
+  background-color: var(--accent-color);
 }
 
 .close-button:hover {
   color: var(--accent-color);
-  z-index: 9999;
+  background-color: #fff;
+  box-shadow: rgba(60, 64, 67, 0.3) 0px 1px 2px 0px, rgba(60, 64, 67, 0.15) 0px 1px 3px 1px;
 }
 
 /*
