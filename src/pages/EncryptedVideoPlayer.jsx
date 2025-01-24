@@ -3,10 +3,10 @@ import "./EncryptedVideoPlayer.css"
 /**
 * Constants:
 */
-const INITIAL_SEGMENTS_TO_APPEND = 15;
-const MAX_BUFFER_BYTES_VIDEO = 150 * 1024 * 1024;
-const MAX_BUFFER_BYTES_AUDIO = 50 * 1024 * 1024;
-const LAZY_BUFFER_THRESHOLD_SEC = 25;
+const INITIAL_SEGMENTS_TO_APPEND = 7;
+const MAX_BUFFER_BYTES_VIDEO = 250 * 1024 * 1024;
+const MAX_BUFFER_BYTES_AUDIO = 100 * 1024 * 1024;
+const LAZY_BUFFER_THRESHOLD_SEC = 15;
 
 export default function EncryptedVideoPlayer({ file, axiosInstance }) {
   const videoRef = useRef(null);

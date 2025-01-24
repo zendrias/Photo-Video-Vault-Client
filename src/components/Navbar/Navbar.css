@@ -128,7 +128,7 @@
 /*******************************************************
   7) RESPONSIVE: MOBILE
 *******************************************************/
-@media (max-width: 900px) {
+@media (max-width: 1339px) {
   /* Show the hamburger. Hide the horizontal layout. */
   .hamburger-icon {
     display: flex;

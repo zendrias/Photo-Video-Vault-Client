@@ -80,6 +80,7 @@ const App = () => {
     if (!loading) {
       intervalRef.current = setInterval(async () => {
         try {
+          if (!user) return
           const res = await axiosInstance.get("/check-auth");
           if (!res.data.authenticated) {
             // If they're no longer authenticated => show popup

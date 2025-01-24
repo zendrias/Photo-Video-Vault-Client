@@ -43,6 +43,16 @@ function NavBar({ isAuthenticated }) {
                 </NavLink>
               </li>
               <li>
+                <NavLink to="/vault" className={navLinkClass}>
+                  Vault
+                </NavLink>
+              </li>
+              <li>
+                <NavLink to="/shared" className={navLinkClass}>
+                  Shared
+                </NavLink>
+              </li>
+              <li>
                 <NavLink to="/upload" className={navLinkClass}>
                   Upload
                 </NavLink>

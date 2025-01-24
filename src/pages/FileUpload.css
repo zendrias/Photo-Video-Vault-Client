@@ -164,6 +164,258 @@
   cursor: not-allowed;
 }
 
+/* Container for toggles */
+.toggles-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.toggle-item {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-item label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.toggle-label {
+  margin-left: 0.5rem;
+  color: #333;
+}
+
+/* Album select UI */
+.album-select-container {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 1rem;
+}
+
+.album-label {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: #333;
+}
+
+.album-search-input {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  border-radius: var(--border-radius);
+  border: 1px solid #ccc;
+}
+
+.album-dropdown {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: var(--border-radius);
+  border: 1px solid #ccc;
+  font-size: 1rem;
+}
+
+/* Container that holds everything */
+.file-upload-container {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  font-family: sans-serif;
+}
+
+/* 
+  ========== TOP CONTROLS: toggles + upload button ==========
+*/
+.top-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* The button that was moved to top controls */
+.upload-button-top {
+  background-color: var(--primary-color);
+  color: #ffffff;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: var(--border-radius);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color var(--transition-speed);
+}
+
+.upload-button-top:hover {
+  background-color: var(--primary-color-hover);
+}
+
+.upload-button-top:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/*
+  ========== TOGGLE SWITCH STYLES (Pure CSS) ==========
+*/
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* The slider handle */
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px; 
+  bottom: 3px;
+  background-color: #fff;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+/* When input checked => move handle + color */
+.switch input:checked + .slider {
+  background-color: var(--primary-color);
+}
+.switch input:focus + .slider {
+  box-shadow: 0 0 1px var(--primary-color);
+}
+.switch input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+/* Toggle label text next to it */
+.toggle-text {
+  font-size: 0.95rem;
+  color: #333;
+}
+
+/*
+  ========== ALBUM SEARCH/SELECT ==========
+*/
+.album-select-container {
+  margin-bottom: 1rem;
+}
+.album-label {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: #333;
+}
+.album-search-input {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  border-radius: var(--border-radius);
+  border: 1px solid #ccc;
+}
+.album-dropdown {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: var(--border-radius);
+  border: 1px solid #ccc;
+  font-size: 1rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 
+  ========== (Rest of your existing styles for .file-label, .selected-files, etc.) 
+  Just keep them as they are 
+*/
+.file-label {
+  pointer-events: none; /* so card can get drag events */
+}
+
+
+/* 
+  Wrap the selected files header => "Select All" checkbox => "Remove" button 
+*/
+.file-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.file-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+}
+
+/* The remove button */
+.remove-button {
+  background: #ff4e4e; /* or var(--danger-color) */
+  color: #fff;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  font-size: 0.9rem;
+}
+.remove-button:hover {
+  background: #d92f2f; 
+}
+
+/* Each file row => checkbox + file info */
+.file-list-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+/* So we can align text properly to the right of the checkbox */
+.file-info {
+  margin-left: 0.5rem;
+}
+
+
+
 /*
   ========== RESPONSIVE DESIGN ==========
 */
