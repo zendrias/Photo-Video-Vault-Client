@@ -1,5 +1,4 @@
 .upload-card {
-  /* The entire card is now a drop zone */
   position: relative;
   max-width: 480px;
   width: 90%;
@@ -9,7 +8,6 @@
   border-radius: var(--border-radius);
   box-shadow: var(--box-shadow);
 
-  /* Drag & Drop styling */
   border: 2px dashed var(--primary-color);
   text-align: center;
   cursor: pointer;
@@ -38,9 +36,6 @@
   color: var(--primary-color);
 }
 
-/*
-  ========== UPLOAD FORM CONTENTS ==========
-*/
 .upload-form {
   display: flex;
   flex-direction: column;
@@ -48,15 +43,12 @@
   gap: 1rem;
 }
 
-/*
-  ========== LABEL & HIDDEN FILE INPUT ==========
-*/
 .file-label {
   display: flex;
   flex-direction: column;
   align-items: center;
   color: var(--primary-color);
-  pointer-events: none; /* So drag events pass through to .upload-card */
+  pointer-events: none;
 }
 
 .file-label-icon {
@@ -72,9 +64,6 @@
   display: none;
 }
 
-/*
-  ========== SELECTED FILES DISPLAY ==========
-*/
 .selected-files {
   background: var(--secondary-color);
   padding: 1rem;
@@ -87,9 +76,6 @@
   margin: 0 0 0.5rem 0;
 }
 
-/*
-  ========== MESSAGES ==========
-*/
 .error-message {
   color: var(--error-color);
   text-align: center;
@@ -111,9 +97,6 @@
   margin-right: 0.5rem;
 }
 
-/*
-  ========== PROGRESS BAR ==========
-*/
 .progress-bar {
   position: relative;
   width: 100%;
@@ -140,9 +123,6 @@
   line-height: 24px;
 }
 
-/*
-  ========== BUTTON STYLES ==========
-*/
 .upload-button {
   background-color: var(--primary-color);
   color: #ffffff;
@@ -164,7 +144,6 @@
   cursor: not-allowed;
 }
 
-/* Container for toggles */
 .toggles-container {
   display: flex;
   flex-direction: column;
@@ -189,7 +168,6 @@
   color: #333;
 }
 
-/* Album select UI */
 .album-select-container {
   width: 100%;
   text-align: left;
@@ -218,7 +196,6 @@
   font-size: 1rem;
 }
 
-/* Container that holds everything */
 .file-upload-container {
   max-width: 600px;
   margin: 2rem auto;
@@ -226,9 +203,6 @@
   font-family: sans-serif;
 }
 
-/* 
-  ========== TOP CONTROLS: toggles + upload button ==========
-*/
 .top-controls {
   display: flex;
   flex-wrap: wrap;
@@ -244,7 +218,6 @@
   gap: 0.5rem;
 }
 
-/* The button that was moved to top controls */
 .upload-button-top {
   background-color: var(--primary-color);
   color: #ffffff;
@@ -265,9 +238,6 @@
   cursor: not-allowed;
 }
 
-/*
-  ========== TOGGLE SWITCH STYLES (Pure CSS) ==========
-*/
 .switch {
   position: relative;
   display: inline-block;
@@ -281,13 +251,15 @@
   height: 0;
 }
 
-/* The slider handle */
 .slider {
   position: absolute;
   cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background-color: #ccc;
-  transition: .4s;
+  transition: 0.4s;
   border-radius: 24px;
 }
 
@@ -296,14 +268,13 @@
   content: "";
   height: 18px;
   width: 18px;
-  left: 3px; 
+  left: 3px;
   bottom: 3px;
   background-color: #fff;
-  transition: .4s;
+  transition: 0.4s;
   border-radius: 50%;
 }
 
-/* When input checked => move handle + color */
 .switch input:checked + .slider {
   background-color: var(--primary-color);
 }
@@ -314,15 +285,11 @@
   transform: translateX(20px);
 }
 
-/* Toggle label text next to it */
 .toggle-text {
   font-size: 0.95rem;
   color: #333;
 }
 
-/*
-  ========== ALBUM SEARCH/SELECT ==========
-*/
 .album-select-container {
   margin-bottom: 1rem;
 }
@@ -357,18 +324,10 @@
   }
 }
 
-/* 
-  ========== (Rest of your existing styles for .file-label, .selected-files, etc.) 
-  Just keep them as they are 
-*/
 .file-label {
-  pointer-events: none; /* so card can get drag events */
+  pointer-events: none;
 }
 
-
-/* 
-  Wrap the selected files header => "Select All" checkbox => "Remove" button 
-*/
 .file-list-header {
   display: flex;
   align-items: center;
@@ -387,9 +346,8 @@
   align-items: center;
 }
 
-/* The remove button */
 .remove-button {
-  background: #ff4e4e; /* or var(--danger-color) */
+  background: #ff4e4e;
   color: #fff;
   border: none;
   padding: 0.4rem 0.8rem;
@@ -399,26 +357,19 @@
   font-size: 0.9rem;
 }
 .remove-button:hover {
-  background: #d92f2f; 
+  background: #d92f2f;
 }
 
-/* Each file row => checkbox + file info */
 .file-list-item {
   display: flex;
   align-items: center;
   margin-bottom: 0.25rem;
 }
 
-/* So we can align text properly to the right of the checkbox */
 .file-info {
   margin-left: 0.5rem;
 }
 
-
-
-/*
-  ========== RESPONSIVE DESIGN ==========
-*/
 @media (max-width: 480px) {
   .upload-card {
     padding: 1.5rem;

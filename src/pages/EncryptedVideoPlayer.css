@@ -1,6 +1,3 @@
-/*
-  ========== CONTAINER ==========
-*/
 .video-player-container {
   position: relative;
   width: 100%;
@@ -15,9 +12,6 @@
   font-family: var(--font-family);
 }
 
-/*
-  ========== MESSAGES ==========
-*/
 .player-message {
   margin-bottom: 0.75rem;
   font-size: 0.95rem;
@@ -33,29 +27,23 @@
   color: var(--error-color);
 }
 
-/*
-  ========== VIDEO ELEMENT ==========
-*/
 .encrypted-video {
   width: 100%;
   max-height: var(--max-video-height);
-  background-color: black; /* Ensures black letterbox if aspect ratio differs */
+  background-color: black;
   border: 2px solid transparent;
   border-radius: var(--border-radius);
   outline: none;
-  transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
+  transition: border-color var(--transition-speed),
+    box-shadow var(--transition-speed);
 }
 
-/* On hover/focus, highlight the border with accent color */
 .encrypted-video:hover,
 .encrypted-video:focus {
   border-color: var(--player-accent);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.5);
 }
 
-/*
-  ========== RESPONSIVE ADJUSTMENTS ==========
-*/
 @media (max-width: 600px) {
   .video-player-container {
     padding: 0.75rem;

@@ -1,21 +1,35 @@
-// LoginForm.jsx
+// File: LoginForm.tsx
 import React, { useState, useEffect } from "react";
+import type { AxiosInstance } from "axios";
 import forge from "node-forge";
 import CryptoJS from "crypto-js";
 import { useNavigate } from "react-router-dom";
-import "./LoginForm.css"; // Importing external CSS for styling
+import "./LoginForm.css";
 
-const LoginForm = ({ axiosInstance, onLoginSuccess }) => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [publicKey, setPublicKey] = useState(null);
-  const [loading, setLoading] = useState(false);
+type LoginFormProps = {
+  axiosInstance: AxiosInstance;
+  onLoginSuccess: () => Promise<void> | void;
+};
+
+type PublicKeyResponse = { publicKey: string };
+type AuthResponse = { message: string };
+
+const LoginForm: React.FC<LoginFormProps> = ({
+  axiosInstance,
+  onLoginSuccess,
+}) => {
+  const [username, setUsername] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [publicKey, setPublicKey] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchPublicKey = async () => {
       try {
-        const response = await axiosInstance.get("/get-public-key");
+        const response = await axiosInstance.get<PublicKeyResponse>(
+          "/get-public-key"
+        );
         setPublicKey(response.data.publicKey);
       } catch (error) {
         console.error("Error fetching public key:", error);
@@ -24,7 +38,7 @@ const LoginForm = ({ axiosInstance, onLoginSuccess }) => {
     fetchPublicKey();
   }, [axiosInstance]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
@@ -35,12 +49,12 @@ const LoginForm = ({ axiosInstance, onLoginSuccess }) => {
     }
 
     try {
-      // Generate a random AES key
+      // Generate a random AES key (128-bit) and encode as Base64
       const aesKey = CryptoJS.lib.WordArray.random(16).toString(
         CryptoJS.enc.Base64
       );
 
-      // Encrypt the password using AES
+      // Encrypt the password using AES (preserves existing behavior)
       const encryptedPassword = CryptoJS.AES.encrypt(
         password,
         aesKey
@@ -52,18 +66,16 @@ const LoginForm = ({ axiosInstance, onLoginSuccess }) => {
       const encryptedAesKey = forge.util.encode64(encryptedAesKeyBytes);
 
       // Send encrypted data to the backend
-      const response = await axiosInstance.post("/authenticate", {
+      const response = await axiosInstance.post<AuthResponse>("/authenticate", {
         username,
         encryptedAesKey,
         encryptedPassword,
       });
 
-      // If authentication is successful, update auth status and redirect
       if (response.data.message === "Authentication successful!") {
-        await onLoginSuccess(); // Re-check auth status
-        navigate("/"); // Redirect to home
+        await onLoginSuccess?.();
+        navigate("/");
       } else {
-        // Handle other success messages if any
         alert(response.data.message);
       }
     } catch (error) {

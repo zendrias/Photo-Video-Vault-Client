@@ -1,48 +1,50 @@
-// File: FileList.jsx
 import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
+import type { AxiosInstance } from "axios";
 import { FaTimes, FaPlay, FaEye, FaEyeSlash } from "react-icons/fa";
 import EncryptedVideoPlayer from "./EncryptedVideoPlayer";
 import "./FileGallery.css";
 
 Modal.setAppElement("#root");
 
-const PAGE_SIZE = 10; // 10 files per page
+const PAGE_SIZE = 10;
 
-const FileList = ({ axiosInstance }) => {
-  // Data & Pagination
-  const [allFiles, setAllFiles] = useState([]);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
+type FileItem = {
+  id: string | number;
+  filename: string;
+  mimetype: string;
+};
 
-  // Loading states
-  const [loading, setLoading] = useState(true);          // For initial or subsequent fetch
-  const [loadingThumbnails, setLoadingThumbnails] = useState(false); // For images on a page
-  const [mediaRemaining, setMediaRemaining] = useState(0); // How many images/videos left to load?
+type FileListProps = {
+  axiosInstance: AxiosInstance;
+};
 
-  // Errors
-  const [error, setError] = useState("");
+const FileList: React.FC<FileListProps> = ({ axiosInstance }) => {
+  const [allFiles, setAllFiles] = useState<FileItem[]>([]);
+  const [page, setPage] = useState<number>(0);
+  const [hasMore, setHasMore] = useState<boolean>(true);
 
-  // Modal
-  const [modalIsOpen, setModalIsOpen] = useState(false);
-  const [activeFile, setActiveFile] = useState(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [loadingThumbnails, setLoadingThumbnails] = useState<boolean>(false);
+  const [mediaRemaining, setMediaRemaining] = useState<number>(0);
 
-  // Eye toggle (frosted/unfrosted)
-  const [thumbnailsVisible, setThumbnailsVisible] = useState(true);
+  const [error, setError] = useState<string>("");
 
-  // Current “slice” for the shown page (page+1) * PAGE_SIZE
+  const [modalIsOpen, setModalIsOpen] = useState<boolean>(false);
+  const [activeFile, setActiveFile] = useState<FileItem | null>(null);
+
+  const [thumbnailsVisible, setThumbnailsVisible] = useState<boolean>(true);
+
   const currentPageFiles = allFiles.slice(0, (page + 1) * PAGE_SIZE);
 
-  // ==========================
-  // FETCH PAGINATED FILES
-  // ==========================
-  const fetchFiles = async (pageIndex) => {
+  const fetchFiles = async (pageIndex: number): Promise<void> => {
     setLoading(true);
     try {
-      // If your backend supports offset & limit
       const offset = pageIndex * PAGE_SIZE;
       const limit = PAGE_SIZE;
-      const res = await axiosInstance.get(`/files?offset=${offset}&limit=${limit}`);
+      const res = await axiosInstance.get<FileItem[]>(
+        `/files?offset=${offset}&limit=${limit}`
+      );
       const newPageFiles = res.data;
 
       if (newPageFiles.length < PAGE_SIZE) {
@@ -58,53 +60,40 @@ const FileList = ({ axiosInstance }) => {
     }
   };
 
-  // Initial load (page 0)
   useEffect(() => {
     fetchFiles(0);
-    // eslint-disable-next-line
   }, [axiosInstance]);
 
-  // When page changes, fetch next chunk
   useEffect(() => {
     if (page > 0) {
       fetchFiles(page);
     }
-    // eslint-disable-next-line
   }, [page]);
 
-  // ==========================
-  // THUMBNAIL LOADING LOGIC
-  // ==========================
   useEffect(() => {
     if (currentPageFiles.length === 0) {
-      // No files => no spinner needed
       setLoadingThumbnails(false);
       setMediaRemaining(0);
       return;
     }
 
-    // Filter out only the items that are images or videos => those produce thumbnails
     const mediaItems = currentPageFiles.filter(
       (f) => f.mimetype.startsWith("image/") || f.mimetype.startsWith("video/")
     );
 
     if (mediaItems.length === 0) {
-      // If no images/videos, no spinner
       setLoadingThumbnails(false);
       setMediaRemaining(0);
     } else {
-      // We have N media items => they each must load (or error)
       setLoadingThumbnails(true);
       setMediaRemaining(mediaItems.length);
     }
   }, [currentPageFiles]);
 
-  const handleThumbnailLoad = () => {
-    // Each successful or error load => decrement
+  const handleThumbnailLoad = (): void => {
     setMediaRemaining((prev) => {
       const newVal = prev - 1;
       if (newVal <= 0) {
-        // All done => hide spinner
         setLoadingThumbnails(false);
         return 0;
       }
@@ -112,29 +101,19 @@ const FileList = ({ axiosInstance }) => {
     });
   };
 
-  // ==========================
-  // EYE (VISIBILITY) TOGGLE
-  // ==========================
-  const toggleVisibility = () => {
+  const toggleVisibility = (): void => {
     setThumbnailsVisible((prev) => !prev);
   };
 
-  // ==========================
-  // MODAL FUNCTIONS
-  // ==========================
-  const openModal = (file) => {
+  const openModal = (file: FileItem): void => {
     setActiveFile(file);
     setModalIsOpen(true);
   };
-  const closeModal = () => {
+  const closeModal = (): void => {
     setActiveFile(null);
     setModalIsOpen(false);
   };
 
-  // ==========================
-  // RENDER LOGIC
-  // ==========================
-  // If loading first page => big spinner
   if (loading && page === 0) {
     return <div className="loader-container">Loading files...</div>;
   }
@@ -145,9 +124,10 @@ const FileList = ({ axiosInstance }) => {
     return <div className="empty-gallery">No files in vault. Upload some!</div>;
   }
 
+  const baseUrl = (import.meta as any).env.VITE_BASE_URL as string;
+
   return (
     <div className="gallery-container">
-      {/* Eye Toggle */}
       <div className="eye-toggle-container">
         <button className="eye-toggle-btn" onClick={toggleVisibility}>
           {thumbnailsVisible ? <FaEyeSlash /> : <FaEye />}
@@ -155,30 +135,27 @@ const FileList = ({ axiosInstance }) => {
         </button>
       </div>
 
-      {/* Spinner while thumbnails loading */}
-      {/* {loadingThumbnails && (
-        <div className="thumbnails-loader">Loading Thumbnails...</div>
-      )} */}
-
       <div className="gallery">
         {currentPageFiles.map((file) => {
           const isImage = file.mimetype.startsWith("image/");
           const isVideo = file.mimetype.startsWith("video/");
 
-          // Build the correct URL
-          const baseUrl = import.meta.env.VITE_BASE_URL
           const previewUrl = isVideo
             ? `${baseUrl}/thumbnail/${file.id}`
             : `${baseUrl}/image/${file.id}`;
 
-          const itemClass = thumbnailsVisible ? "gallery-item" : "gallery-item frosted";
+          const itemClass = thumbnailsVisible
+            ? "gallery-item"
+            : "gallery-item frosted";
 
           return (
             <div
               key={file.id}
               className={itemClass}
               onClick={() => openModal(file)}
-              onKeyPress={(e) => e.key === "Enter" && openModal(file)}
+              onKeyPress={(e: React.KeyboardEvent<HTMLDivElement>) =>
+                e.key === "Enter" && openModal(file)
+              }
               tabIndex={0}
               role="button"
             >
@@ -202,7 +179,6 @@ const FileList = ({ axiosInstance }) => {
                   <FaPlay className="play-icon" size={30} />
                 </div>
               ) : (
-                // Non-media => no onLoad needed
                 <div className="unsupported-file">
                   <p>Unknown file type: {file.filename}</p>
                 </div>
@@ -216,7 +192,6 @@ const FileList = ({ axiosInstance }) => {
         })}
       </div>
 
-      {/* "See More" */}
       {hasMore && !loading && (
         <div className="see-more-container">
           <button className="see-more-btn" onClick={() => setPage(page + 1)}>
@@ -225,7 +200,6 @@ const FileList = ({ axiosInstance }) => {
         </div>
       )}
 
-      {/* Modal */}
       <Modal
         isOpen={modalIsOpen}
         onRequestClose={closeModal}
@@ -236,11 +210,14 @@ const FileList = ({ axiosInstance }) => {
           <FaTimes />
         </button>
 
-        {activeFile?.mimetype.startsWith("video/") ? (
-          <EncryptedVideoPlayer file={activeFile} axiosInstance={axiosInstance} />
-        ) : activeFile?.mimetype.startsWith("image/") ? (
+        {activeFile?.mimetype?.startsWith("video/") ? (
+          <EncryptedVideoPlayer
+            file={activeFile}
+            axiosInstance={axiosInstance}
+          />
+        ) : activeFile?.mimetype?.startsWith("image/") ? (
           <img
-            src={`${import.meta.env.VITE_BASE_URL}/image/${activeFile.id}`}
+            src={`${baseUrl}/image/${activeFile.id}`}
             alt={activeFile.filename}
             className="modal-media"
           />

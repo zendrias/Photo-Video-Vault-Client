@@ -1,30 +1,29 @@
-import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import './NavBar.css';
-import breedZ from '../../assets/breed-z-logo.svg'
-function NavBar({ isAuthenticated }) {
-  const [isOpen, setIsOpen] = useState(false);
+import React, { useState } from "react";
+import { NavLink, type NavLinkProps } from "react-router-dom";
+import "./NavBar.css";
+import breedZ from "../../assets/breed-z-logo.svg";
 
-  const toggleMenu = () => {
-    setIsOpen(!isOpen);
-  };
+type NavBarProps = {
+  isAuthenticated: boolean;
+};
 
-  // React Router v6 no longer supports "activeClassName" by default,
-  // so we use a function to conditionally add "active-link".
-  const navLinkClass = ({ isActive }) =>
-    isActive ? 'nav-link active-link' : 'nav-link';
+const NavBar: React.FC<NavBarProps> = ({ isAuthenticated }) => {
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+
+  const toggleMenu = () => setIsOpen((prev) => !prev);
+
+  const navLinkClass: NavLinkProps["className"] = ({ isActive }) =>
+    isActive ? "nav-link active-link" : "nav-link";
 
   return (
     <header className="nav-wrapper">
       <nav className="nav-container">
-        {/* BRAND */}
         <div className="brand">
-          <img src={breedZ} alt="Breed Z" height="40px"/>
+          <img src={breedZ} alt="Breed Z" height={40} />
         </div>
 
-        {/* HAMBURGER / X ICON (visible on mobile) */}
         <div
-          className={`hamburger-icon ${isOpen ? 'is-open' : ''}`}
+          className={`hamburger-icon ${isOpen ? "is-open" : ""}`}
           onClick={toggleMenu}
         >
           <span />
@@ -32,10 +31,8 @@ function NavBar({ isAuthenticated }) {
           <span />
         </div>
 
-        {/* NAV LINKS (horizontal on desktop, dropdown on mobile) */}
-        <ul className={`nav-list ${isOpen ? 'open-menu' : ''}`}>
-          {
-            isAuthenticated ?
+        <ul className={`nav-list ${isOpen ? "open-menu" : ""}`}>
+          {isAuthenticated ? (
             <>
               <li>
                 <NavLink to="/" className={navLinkClass}>
@@ -63,7 +60,7 @@ function NavBar({ isAuthenticated }) {
                 </NavLink>
               </li>
             </>
-            : (
+          ) : (
             <>
               <li>
                 <NavLink to="/login" className={navLinkClass}>
@@ -81,6 +78,6 @@ function NavBar({ isAuthenticated }) {
       </nav>
     </header>
   );
-}
+};
 
 export default NavBar;

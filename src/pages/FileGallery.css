@@ -1,9 +1,6 @@
-/* 
-  ========== ROOT VARIABLES (EASY TO THEME) ==========
-*/
 :root {
-  --accent-color: #4f46e5; /* Purplish-blue accent */
-  --accent-hover: #4338ca; /* Slightly darker accent */
+  --accent-color: #4f46e5;
+  --accent-hover: #4338ca;
   --bg-color: #f5f6fa;
   --text-color: #333;
   --light-border: rgba(0, 0, 0, 0.1);
@@ -15,9 +12,6 @@
   --gray-555: #555;
 }
 
-/*
-  ========== OVERALL GALLERY CONTAINER ==========
-*/
 .gallery-container {
   padding: 20px;
   max-width: 1200px;
@@ -33,16 +27,12 @@
   color: var(--text-color);
 }
 
-/*
-  ========== GALLERY GRID LAYOUT ==========
-*/
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 20px;
 }
 
-/* Extra breakpoints for large, medium, small screens */
 @media (min-width: 1200px) {
   .gallery {
     grid-template-columns: repeat(4, 1fr);
@@ -61,16 +51,14 @@
   }
 }
 
-/*
-  ========== GALLERY ITEMS ==========
-*/
 .gallery-item {
   position: relative;
   cursor: pointer;
   overflow: hidden;
   border-radius: 8px;
   box-shadow: var(--box-shadow-1);
-  transition: transform var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
+  transition: transform var(--transition-speed) ease,
+    box-shadow var(--transition-speed) ease;
 }
 
 .gallery-item:hover {
@@ -78,16 +66,14 @@
   box-shadow: var(--box-shadow-2);
 }
 
-/*
-  ========== MEDIA (IMAGES / VIDEOS) ==========
-*/
 .gallery-media {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
   border: 1px solid var(--light-border);
-  transition: transform var(--transition-speed) ease, border var(--transition-speed) ease;
+  transition: transform var(--transition-speed) ease,
+    border var(--transition-speed) ease;
 }
 
 .gallery-item:hover .gallery-media {
@@ -95,9 +81,6 @@
   border-color: var(--accent-color);
 }
 
-/*
-  ========== VIDEO THUMBNAIL ==========
-*/
 .video-thumbnail {
   position: relative;
 }
@@ -109,9 +92,6 @@
   object-fit: cover;
 }
 
-/* 
-  Overlay "Play" icon 
-*/
 .play-icon {
   position: absolute;
   font-size: 2.5rem;
@@ -120,7 +100,8 @@
   transform: translate(-50%, -50%);
   pointer-events: none;
   color: rgba(255, 255, 255, 0.8);
-  transition: transform var(--transition-speed) ease, color var(--transition-speed) ease;
+  transition: transform var(--transition-speed) ease,
+    color var(--transition-speed) ease;
 }
 
 .video-thumbnail:hover .play-icon {
@@ -128,9 +109,6 @@
   color: var(--accent-color);
 }
 
-/*
-  ========== OVERLAY WITH FILENAME ==========
-*/
 .overlay {
   position: absolute;
   bottom: 0;
@@ -154,9 +132,6 @@
   text-overflow: ellipsis;
 }
 
-/*
-  ========== LOADER, ERROR, AND EMPTY STATES ==========
-*/
 .loader-container,
 .error-message,
 .empty-gallery {
@@ -170,9 +145,6 @@
   text-align: center;
 }
 
-/* 
-  ========== LOADER ANIMATION 
-*/
 .loader {
   border: 8px solid #f3f3f3;
   border-top: 8px solid var(--gray-555);
@@ -189,16 +161,10 @@
   }
 }
 
-/* 
-  ========== ERROR MESSAGE ==========
-*/
 .error-message {
   color: var(--danger-color);
 }
 
-/*
-  ========== MODAL STYLES ==========
-*/
 .modal {
   position: relative;
   background: #fff;
@@ -230,7 +196,6 @@
   right: 0;
 }
 
-/* Subtle fade-in animation for the modal content */
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -242,15 +207,12 @@
   }
 }
 
-/*
-  ========== CLOSE BUTTON ==========
-*/
 .close-button {
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 4px;
-  border: 1px solid var(--accent-color);;
+  border: 1px solid var(--accent-color);
   position: absolute;
   top: 15px;
   right: 15px;
@@ -258,7 +220,9 @@
   border: none;
   cursor: pointer;
   color: #fff;
-  transition: color var(--transition-speed) ease-in-out, background-color var(--transition-speed) ease-in-out, box-shadow var(--transition-speed) ease-in-out;
+  transition: color var(--transition-speed) ease-in-out,
+    background-color var(--transition-speed) ease-in-out,
+    box-shadow var(--transition-speed) ease-in-out;
   z-index: 9999999;
   transform: scale(1.2);
   border-radius: 50vw;
@@ -268,29 +232,23 @@
 .close-button:hover {
   color: var(--accent-color);
   background-color: #fff;
-  box-shadow: rgba(60, 64, 67, 0.3) 0px 1px 2px 0px, rgba(60, 64, 67, 0.15) 0px 1px 3px 1px;
+  box-shadow: rgba(60, 64, 67, 0.3) 0px 1px 2px 0px,
+    rgba(60, 64, 67, 0.15) 0px 1px 3px 1px;
 }
 
-/*
-  ========== MODAL MEDIA ==========
-*/
 .modal-media {
-  /* width: 100%; */
   height: auto;
   max-height: 80vh;
   border-radius: 8px;
   display: block;
 }
 
-/*
-  ========== UNSUPPORTED FILE STYLES ==========
-*/
 .unsupported-file {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 200px; /* Adjust as needed */
+  height: 200px;
   color: #888;
   padding: 20px;
   text-align: center;
@@ -304,13 +262,11 @@
   font-size: 1rem;
 }
 
-/* Frosted (blur) effect when thumbnails are hidden */
 .frosted .gallery-media {
   filter: blur(30px) brightness(0.6);
   transition: filter var(--transition-speed) ease;
 }
 
-/* Eye Toggle Container */
 .eye-toggle-container {
   display: flex;
   justify-content: flex-end;
@@ -336,7 +292,6 @@
   background-color: var(--accent-hover);
 }
 
-/* "See More" Button */
 .see-more-container {
   text-align: center;
   margin-top: 1rem;
@@ -355,13 +310,12 @@
   background-color: var(--accent-hover);
 }
 
-/* Thumbnails loading overlay or text */
 .thumbnails-loader {
   position: fixed;
-  top: 120px; /* adjust if you have a header */
+  top: 120px;
   left: 50%;
   transform: translateX(-50%);
-  background-color: rgba(0,0,0,0.8);
+  background-color: rgba(0, 0, 0, 0.8);
   color: #fff;
   padding: 0.75rem 1rem;
   border-radius: 6px;
@@ -369,10 +323,6 @@
   font-size: 1rem;
 }
 
-
-/* 
-  ========== RESPONSIVE ADJUSTMENTS ==========
-*/
 @media (max-width: 600px) {
   .modal {
     padding: 10px;
