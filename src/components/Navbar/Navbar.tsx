@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { NavLink, type NavLinkProps } from "react-router-dom";
-import "./NavBar.css";
+import "./Navbar.css";
 import breedZ from "../../assets/breed-z-logo.svg";
 
 type NavBarProps = {
