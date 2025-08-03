@@ -23,6 +23,12 @@ dist-ssr
 *.sln
 *.sw?
 *.pem
+**/*.pem
+*.key
+*.crt
+*.cer
+*.pfx
+
 
 .env
 
