@@ -26,3 +26,6 @@ dist-ssr
 .env
 
 .codegpt
+
+frontend.pem
+frontend-key.pem
